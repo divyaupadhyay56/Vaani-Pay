@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vaani Pay</title>
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS  (light + dark)
+═══════════════════════════════════════════ */
+:root {
+  --brand:        #6c63ff;
+  --brand-dark:   #4d46c4;
+  --brand-light:  #ede9ff;
+  --bg:           #f0f0fa;
+  --surface:      #ffffff;
+  --surface2:     #f7f7fc;
+  --text:         #1a1a2e;
+  --text-muted:   #6b6b80;
+  --border:       #e4e4f0;
+  --danger:       #dc2626;
+  --danger-bg:    #fef2f2;
+  --success:      #16a34a;
+  --success-bg:   #f0fdf4;
+  --warn-bg:      #fefce8;
+  --shadow:       0 8px 40px rgba(108,99,255,.13);
+  --shadow-sm:    0 2px 12px rgba(108,99,255,.10);
+  --radius:       18px;
+  --radius-sm:    10px;
+  --radius-xs:    7px;
+  --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ease:         cubic-bezier(.4,0,.2,1);
+  --transition:   .22s var(--ease);
+}
+[data-theme="dark"] {
+  --brand:        #8b83ff;
+  --brand-dark:   #6c63ff;
+  --brand-light:  #2a2657;
+  --bg:           #0f0f18;
+  --surface:      #1a1a28;
+  --surface2:     #21213a;
+  --text:         #e8e8f8;
+  --text-muted:   #9090b0;
+  --border:       #2e2e48;
+  --danger:       #f87171;
+  --danger-bg:    #2d1010;
+  --success:      #4ade80;
+  --success-bg:   #0d2818;
+  --warn-bg:      #2a2000;
+  --shadow:       0 8px 40px rgba(0,0,0,.5);
+  --shadow-sm:    0 2px 12px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  color:var(--text);
+  transition:background var(--transition),color var(--transition);
+}
+/* ─── App shell ─── */
+.app{
+  width:100%;
+  max-width:440px;
+  height:100vh;
+  max-height:820px;
+  display:flex;
+  flex-direction:column;
+  background:var(--surface);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  position:relative;
+}
+@media(min-width:480px){
+  body{padding:20px}
+  .app{height:min(820px,calc(100vh - 40px))}
+}
+/* ─── Header ─── */
+header{
+  background:linear-gradient(135deg,var(--brand) 0%,var(--brand-dark) 100%);
+  color:#fff;
+  padding:16px 18px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  flex-shrink:0;
+  position:relative;
+  overflow:hidden;
+}
+header::before{
+  content:'';
+  position:absolute;
+  top:-30px;right:-20px;
+  width:120px;height:120px;
+  border-radius:50%;
+  background:rgba(255,255,255,.07);
+  pointer-events:none;
+}
+.avatar{
+  width:36px;height:36px;
+  border-radius:50%;
+  background:rgba(255,255,255,.22);
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;
+}
+header .titles{flex:1;min-width:0}
+header h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.01em}
+header p{font-size:11.5px;margin:2px 0 0;opacity:.87;display:flex;align-items:center;gap:5px}
+.status-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;flex-shrink:0;transition:background .3s}
+.status-dot.offline{background:#f87171}
+.header-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.header-btn{
+  background:rgba(255,255,255,.18);
+  border:none;color:#fff;
+  width:32px;height:32px;
+  border-radius:50%;
+  cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background var(--transition);
+  flex-shrink:0;
+}
+.header-btn:hover{background:rgba(255,255,255,.32)}
+/* ─── Landing page ─── */
+#landingPage{
+  position:absolute;inset:0;
+  background:var(--surface);
+  z-index:50;
+  display:flex;flex-direction:column;
+  align-items:center;
+  overflow:hidden;
+  transition:opacity .4s var(--ease),transform .4s var(--ease);
+}
+#landingPage.hidden-page{
+  opacity:0;
+  transform:scale(.96);
+  pointer-events:none;
+}
+.landing-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(170deg, var(--brand-light) 0%, var(--surface) 55%);
+  pointer-events:none;
+}
+.landing-top{
+  width:100%;
+  padding:18px 22px 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  position:relative;z-index:2;
+}
+.landing-logo{
+  font-size:18px;font-weight:800;
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.lang-toggle{
+  display:flex;
+  border:1.5px solid var(--border);
+  border-radius:20px;
+  overflow:hidden;
+  background:var(--surface);
+}
+.lang-toggle button{
+  border:none;
+  background:transparent;
+  color:var(--text-muted);
+  font-size:11.5px;font-weight:600;
+  padding:5px 11px;
+  cursor:pointer;
+  transition:all var(--transition);
+}
+.lang-toggle button.active{
+  background:var(--brand);
+  color:#fff;
+}
+/* ─── Mascot / cartoon ─── */
+.mascot-wrap{
+  position:relative;z-index:2;
+  margin-top:10px;
+  flex-shrink:0;
+}
+/* SVG mascot */
+.mascot-svg-wrap{
+  width:140px;height:140px;
+  position:relative;
+  margin:0 auto;
+}
+/* Idle bob */
+@keyframes bobFloat{
+  0%,100%{transform:translateY(0) rotate(-1deg)}
+  50%{transform:translateY(-8px) rotate(1deg)}
+}
+.mascot-svg-wrap svg{
+  width:100%;height:100%;
+  animation:bobFloat 3.5s ease-in-out infinite;
+  filter:drop-shadow(0 6px 18px rgba(108,99,255,.25));
+}
+/* Blink */
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.08)}}
+.eye-l,.eye-r{transform-origin:center;animation:blink 4s ease-in-out infinite}
+.eye-r{animation-delay:.08s}
+/* Coin spin */
+@keyframes coinSpin{0%{transform:rotateY(0)}50%{transform:rotateY(180deg)}100%{transform:rotateY(360deg)}}
+.coin-group{animation:coinSpin 3s linear infinite;transform-origin:center;transform-box:fill-box}
+/* Sparkles */
+@keyframes sparkle{0%,100%{opacity:0;transform:scale(0)}40%,60%{opacity:1;transform:scale(1)}}
+.sp1{animation:sparkle 2.2s ease-in-out infinite}
+.sp2{animation:sparkle 2.2s ease-in-out .55s infinite}
+.sp3{animation:sparkle 2.2s ease-in-out 1.1s infinite}
+/* ─── Speech bubble ─── */
+.speech-bubble-wrap{
+  position:relative;z-index:2;
+  width:calc(100% - 48px);
+  max-width:320px;
+  margin:0 auto 14px;
+  min-height:62px;
+  display:flex;
+  align-items:center;
+}
+.speech-bubble{
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:16px 16px 16px 4px;
+  padding:14px 18px;
+  box-shadow:var(--shadow-sm);
+  font-size:13.5px;
+  color:var(--text);
+  line-height:1.5;
+  position:relative;
+  width:100%;
+}
+.bubble-cursor{
+  display:inline-block;
+  width:2px;height:1em;
+  background:var(--brand);
+  margin-left:2px;
+  vertical-align:text-bottom;
+  animation:blinkCursor .7s step-end infinite;
+}
+@keyframes blinkCursor{0%,100%{opacity:1}50%{opacity:0}}
+/* ─── Landing dots ─── */
+.bubble-dots{
+  display:flex;
+  justify-content:center;
+  gap:6px;
+  margin-top:8px;
+  position:relative;z-index:2;
+}
+.bubble-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--border);
+  transition:background .3s;
+}
+.bubble-dot.active{background:var(--brand)}
+/* ─── CTA ─── */
+.landing-cta{
+  position:relative;z-index:2;
+  width:calc(100% - 48px);
+  max-width:320px;
+  margin-top:16px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.btn-cta-primary{
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  color:#fff;border:none;
+  border-radius:14px;
+  padding:15px;
+  font-size:15px;font-weight:700;
+  cursor:pointer;
+  box-shadow:0 4px 18px rgba(108,99,255,.38);
+  transition:opacity .2s,transform .18s;
+  letter-spacing:.01em;
+}
+.btn-cta-primary:hover{opacity:.93;transform:translateY(-1px)}
+.btn-cta-secondary{
+  background:var(--surface2);
+  color:var(--brand);
+  border:1.5px solid var(--brand-light);
+  border-radius:14px;
+  padding:13px;
+  font-size:14px;font-weight:600;
+  cursor:pointer;
+  transition:background var(--transition),border-color var(--transition);
+}
+.btn-cta-secondary:hover{background:var(--brand-light)}
+.landing-tagline{
+  position:relative;z-index:2;
+  font-size:11px;color:var(--text-muted);
+  text-align:center;margin-top:6px;
+  letter-spacing:.02em;
+}
+/* ─── Auth overlay ─── */
+#authOverlay{
+  position:absolute;inset:0;
+  background:var(--surface);
+  display:flex;flex-direction:column;
+  padding:24px 22px 20px;
+  z-index:20;
+  overflow-y:auto;
+}
+#authOverlay .auth-icon{font-size:32px;text-align:center;margin:0 0 6px}
+#authOverlay h2{font-size:17px;margin:0 0 3px;text-align:center;font-weight:700}
+#authOverlay .subtitle{font-size:12.5px;color:var(--text-muted);margin:0 0 16px;text-align:center;line-height:1.5}
+.auth-tabs{
+  display:flex;
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  margin-bottom:16px;
+  background:var(--surface2);
+}
+.auth-tab{
+  flex:1;padding:9px;text-align:center;
+  font-size:13px;font-weight:600;
+  background:transparent;color:var(--text-muted);
+  cursor:pointer;border:none;
+  transition:all var(--transition);
+}
+.auth-tab.active{background:var(--brand);color:#fff;border-radius:10px}
+.field-label{font-size:12px;font-weight:600;color:var(--text-muted);margin:10px 0 4px;letter-spacing:.03em;text-transform:uppercase}
+input[type=text],input[type=email],input[type=password],input[type=tel],input[type=number],select,textarea{
+  width:100%;
+  padding:10px 14px;
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  font-size:13.5px;
+  font-family:var(--font);
+  background:var(--surface2);
+  color:var(--text);
+  outline:none;
+  transition:border-color var(--transition),box-shadow var(--transition);
+  appearance:none;
+}
+input:focus,select:focus{
+  border-color:var(--brand);
+  box-shadow:0 0 0 3px rgba(108,99,255,.14);
+}
+.btn-primary{
+  width:100%;
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  color:#fff;border:none;
+  border-radius:var(--radius-sm);
+  padding:12px;
+  font-size:14px;font-weight:700;
+  cursor:pointer;
+  margin-top:10px;
+  transition:opacity .2s,transform .15s;
+  letter-spacing:.01em;
+}
+.btn-primary:hover:not(:disabled){opacity:.92;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-secondary{
+  width:100%;
+  background:var(--surface2);
+  color:var(--text);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:10px 14px;
+  font-size:13.5px;font-weight:600;
+  cursor:pointer;
+  margin-top:8px;
+  transition:background var(--transition),border-color var(--transition);
+}
+.btn-secondary:hover{background:var(--brand-light);border-color:var(--brand);color:var(--brand)}
+.btn-danger{
+  width:100%;
+  background:var(--danger-bg);
+  color:var(--danger);
+  border:1.5px solid var(--danger);
+  border-radius:var(--radius-sm);
+  padding:10px 14px;
+  font-size:13.5px;font-weight:600;
+  cursor:pointer;
+  margin-top:8px;
+  transition:background var(--transition);
+}
+.btn-danger:hover{background:#fee2e2}
+.link-btn{
+  background:transparent;
+  border:none;
+  color:var(--brand);
+  font-size:12.5px;
+  cursor:pointer;
+  padding:6px 0;
+  text-align:center;
+  display:block;
+  width:100%;
+  margin-top:6px;
+}
+.form-error{font-size:12px;margin-top:6px;min-height:14px}
+.hidden{display:none!important}
+#authHint{
+  font-size:11px;color:var(--text-muted);
+  text-align:center;margin-top:10px;
+  padding:8px 12px;
+  background:var(--surface2);
+  border-radius:var(--radius-xs);
+  border:1px dashed var(--border);
+}
+#authHint code{
+  background:var(--brand-light);
+  color:var(--brand);
+  padding:1px 5px;
+  border-radius:4px;
+  font-size:11px;
+}
+/* ─── Messages ─── */
+#messages{
+  flex:1;
+  overflow-y:auto;
+  padding:14px 14px 6px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  scroll-behavior:smooth;
+}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.msg{
+  max-width:82%;
+  padding:10px 14px;
+  border-radius:16px;
+  font-size:13.5px;
+  line-height:1.55;
+  white-space:pre-wrap;
+  word-break:break-word;
+  animation:msgIn .2s var(--ease);
+}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.user{
+  align-self:flex-end;
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  color:#fff;
+  border-radius:16px 16px 4px 16px;
+}
+.msg.bot{
+  align-self:flex-start;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:4px 16px 16px 16px;
+}
+.msg.status{
+  align-self:center;
+  font-size:11.5px;
+  color:var(--text-muted);
+  background:transparent;
+  border:none;
+  padding:3px 8px;
+  animation:pulse 1.2s ease-in-out infinite;
+  max-width:100%;text-align:center;
+}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+.msg.error{
+  align-self:flex-start;
+  background:var(--danger-bg);
+  border:1px solid #fecaca;
+  color:var(--danger);
+  border-radius:4px 16px 16px 16px;
+}
+/* ─── Suggestions dropdown (new design) ─── */
+#suggestionsWrap{
+  position:relative;
+  flex-shrink:0;
+  border-top:1px solid var(--border);
+}
+#suggestionsToggle{
+  width:100%;
+  background:var(--surface2);
+  border:none;
+  padding:8px 16px;
+  font-size:12px;
+  color:var(--text-muted);
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;
+  transition:background var(--transition);
+}
+#suggestionsToggle:hover{background:var(--brand-light);color:var(--brand)}
+.sugg-toggle-left{display:flex;align-items:center;gap:6px;font-weight:600}
+.sugg-chevron{
+  font-size:10px;
+  transition:transform .25s var(--ease);
+  display:inline-block;
+}
+.sugg-chevron.open{transform:rotate(180deg)}
+/* dropdown panel */
+#suggestionsPanel{
+  position:absolute;
+  bottom:100%;
+  left:0;right:0;
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius) var(--radius) 0 0;
+  box-shadow:0 -8px 32px rgba(108,99,255,.14);
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .3s var(--ease),opacity .25s;
+  opacity:0;
+  z-index:10;
+}
+#suggestionsPanel.open{
+  max-height:260px;
+  opacity:1;
+}
+.sugg-panel-inner{
+  padding:10px 12px 14px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+}
+.suggestion-chip{
+  border:1.5px solid var(--border);
+  background:var(--surface2);
+  color:var(--text);
+  padding:9px 11px;
+  border-radius:var(--radius-sm);
+  font-size:12px;
+  cursor:pointer;
+  text-align:left;
+  display:flex;align-items:center;gap:5px;
+  transition:all var(--transition);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-weight:500;
+}
+.suggestion-chip:hover{
+  border-color:var(--brand);
+  background:var(--brand-light);
+  color:var(--brand);
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-sm);
+}
+.suggestion-chip .chip-icon{
+  font-size:14px;flex-shrink:0;
+}
+/* ─── Chat input ─── */
+#chatForm{
+  display:flex;
+  gap:8px;
+  padding:10px 12px;
+  border-top:1px solid var(--border);
+  background:var(--surface);
+  flex-shrink:0;
+  align-items:center;
+}
+#textInput{
+  flex:1;
+  padding:10px 16px;
+  border-radius:22px;
+  border:1.5px solid var(--border);
+  font-size:13.5px;
+  background:var(--surface2);
+  color:var(--text);
+  outline:none;
+  transition:border-color var(--transition),box-shadow var(--transition);
+}
+#textInput:focus{
+  border-color:var(--brand);
+  box-shadow:0 0 0 3px rgba(108,99,255,.12);
+}
+#sendBtn{
+  border:none;
+  border-radius:50%;
+  width:40px;height:40px;
+  font-size:16px;
+  cursor:pointer;
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  transition:opacity .2s,transform .15s;
+}
+#sendBtn:hover:not(:disabled){opacity:.9;transform:scale(1.06)}
+#sendBtn:disabled{background:#c7c7e8;cursor:not-allowed;transform:none}
+/* ─── Modal ─── */
+.modal-backdrop{
+  position:absolute;inset:0;
+  background:rgba(15,15,30,.45);
+  backdrop-filter:blur(3px);
+  display:flex;align-items:flex-end;
+  z-index:30;
+  opacity:0;pointer-events:none;
+  transition:opacity var(--transition);
+}
+.modal-backdrop.open{opacity:1;pointer-events:auto}
+.modal{
+  width:100%;
+  background:var(--surface);
+  border-radius:var(--radius) var(--radius) 0 0;
+  max-height:88vh;
+  overflow-y:auto;
+  padding:0 0 20px;
+  transform:translateY(40px);
+  transition:transform .3s var(--ease);
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+.modal-backdrop.open .modal{transform:translateY(0)}
+.modal-handle{
+  width:36px;height:4px;
+  background:var(--border);
+  border-radius:2px;
+  margin:12px auto 8px;
+}
+.modal-header{
+  position:sticky;top:0;
+  background:var(--surface);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 18px 10px;
+  border-bottom:1px solid var(--border);
+  z-index:2;
+}
+.modal-header h3{font-size:15px;font-weight:700}
+.modal-close{
+  background:var(--surface2);
+  border:none;color:var(--text-muted);
+  width:28px;height:28px;border-radius:50%;
+  cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:var(--border)}
+.modal-section{padding:12px 18px 0}
+.modal-section h4{font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase}
+.profile-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;
+  padding:6px 0;
+  border-bottom:1px solid var(--border);
+  gap:10px;
+}
+.profile-row span:last-child{color:var(--text-muted);font-size:12.5px;text-align:right}
+.lang-switcher{display:flex;gap:8px}
+.lang-option{
+  flex:1;padding:8px;text-align:center;
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  font-size:13px;font-weight:600;
+  cursor:pointer;
+  color:var(--text-muted);
+  transition:all var(--transition);
+}
+.lang-option.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.warning-box{
+  background:var(--warn-bg);
+  border:1px solid #fde68a;
+  color:#92400e;
+  border-radius:var(--radius-sm);
+  padding:10px 12px;
+  font-size:12.5px;
+  margin-bottom:8px;
+}
+[data-theme="dark"] .warning-box{color:#fcd34d}
+/* ─── Wallet modal ─── */
+.wallet-tabs{
+  display:flex;
+  padding:10px 18px 0;
+  gap:6px;
+  border-bottom:1px solid var(--border);
+}
+.wallet-tab{
+  flex:1;padding:8px 6px;
+  background:transparent;
+  border:none;border-bottom:2.5px solid transparent;
+  color:var(--text-muted);
+  font-size:12.5px;font-weight:600;
+  cursor:pointer;
+  transition:all var(--transition);
+  letter-spacing:.02em;
+}
+.wallet-tab.active{color:var(--brand);border-bottom-color:var(--brand)}
+.balance-card{
+  background:linear-gradient(135deg,var(--brand) 0%,var(--brand-dark) 100%);
+  border-radius:var(--radius-sm);
+  margin:14px 18px 10px;
+  padding:18px 20px;
+  color:#fff;
+  position:relative;overflow:hidden;
+}
+.balance-card::before{
+  content:'₹';
+  position:absolute;
+  right:-12px;top:-18px;
+  font-size:80px;font-weight:800;
+  opacity:.08;line-height:1;
+}
+.balance-label{font-size:11px;opacity:.85;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.balance-amount{font-size:30px;font-weight:800;letter-spacing:-.02em}
+.account-info-box{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  margin:0 18px 12px;
+  padding:8px 14px;
+}
+.confirm-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;padding:7px 0;
+  border-bottom:1px solid var(--border);gap:10px;
+}
+.confirm-row:last-child{border-bottom:none}
+.confirm-row span:last-child{font-weight:600;color:var(--text)}
+.success-box{
+  background:var(--success-bg);
+  border:1.5px solid #86efac;
+  border-radius:var(--radius-sm);
+  padding:16px;
+  text-align:center;
+  margin-bottom:10px;
+}
+.big-check{font-size:32px;margin-bottom:6px}
+.success-title{font-size:15px;font-weight:700;color:var(--success);margin-bottom:4px}
+.success-detail{font-size:13px;color:var(--text-muted)}
+.success-meta{font-size:11.5px;color:var(--text-muted);margin-top:4px;font-family:monospace}
+.empty-note{
+  text-align:center;
+  font-size:13px;
+  color:var(--text-muted);
+  padding:24px 16px;
+}
+/* Transaction history rows */
+.txn-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+  gap:10px;
+}
+.txn-counterparty{font-size:13px;font-weight:600}
+.txn-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
+.txn-amount{font-size:14px;font-weight:700}
+.txn-amount.positive{color:var(--success)}
+.txn-amount.negative{color:var(--danger)}
+.txn-status-pill{
+  font-size:10px;font-weight:600;
+  padding:2px 7px;border-radius:20px;
+  margin-top:3px;display:inline-block;
+  letter-spacing:.03em;text-transform:uppercase;
+}
+.txn-status-pill.SUCCESS{background:var(--success-bg);color:var(--success)}
+.txn-status-pill.PENDING{background:var(--warn-bg);color:#a16207}
+.txn-status-pill.FAILED{background:var(--danger-bg);color:var(--danger)}
+.txn-status-pill.CANCELLED{background:var(--surface2);color:var(--text-muted)}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.filter-chip{
+  border:1.5px solid var(--border);
+  background:var(--surface2);
+  color:var(--text-muted);
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:12px;font-weight:600;
+  cursor:pointer;
+  transition:all var(--transition);
+}
+.filter-chip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.beneficiary-chip{
+  border:1.5px solid var(--border);
+  background:var(--surface2);
+  color:var(--text);
+  padding:8px 12px;border-radius:var(--radius-sm);
+  font-size:12.5px;cursor:pointer;
+  display:block;width:100%;text-align:left;
+  margin-bottom:6px;
+  transition:all var(--transition);
+}
+.beneficiary-chip:hover{border-color:var(--brand);background:var(--brand-light);color:var(--brand)}
+/* PIN auth */
+.pin-context-box{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:8px 14px;margin-bottom:14px;
+}
+.pin-input-row{display:flex;gap:8px;align-items:center}
+.pin-input-row input{flex:1}
+.pin-toggle-btn{
+  background:var(--surface2);border:1.5px solid var(--border);
+  color:var(--text-muted);border-radius:var(--radius-sm);
+  padding:9px 12px;font-size:12.5px;cursor:pointer;
+  white-space:nowrap;flex-shrink:0;
+}
+.pin-security-note{
+  font-size:11px;color:var(--text-muted);
+  text-align:center;margin-top:10px;
+  padding:8px 12px;
+  background:var(--surface2);border-radius:var(--radius-xs);
+  border:1px dashed var(--border);
+}
+/* Dark mode toggle pill */
+#darkToggle{
+  background:rgba(255,255,255,.18);
+  border:none;color:#fff;
+  width:32px;height:32px;
+  border-radius:50%;
+  cursor:pointer;font-size:15px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background var(--transition);
+  flex-shrink:0;
+}
+#darkToggle:hover{background:rgba(255,255,255,.32)}
+/* scrollbar */
+.modal::-webkit-scrollbar{width:4px}
+.modal::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+/* Spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{
+  display:inline-block;
+  width:16px;height:16px;
+  border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+  vertical-align:middle;margin-right:6px;
+}
+/* ─── Agent Timeline ─── */
+#agentPanel{
+  flex-shrink:0;
+  border-top:1px solid var(--border);
+  background:var(--surface2);
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .35s var(--ease);
+}
+#agentPanel.visible{max-height:340px}
+.agent-panel-inner{padding:10px 14px 12px}
+.agent-panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;
+}
+.agent-panel-title{
+  font-size:11.5px;font-weight:700;
+  color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;
+}
+.agent-panel-close{
+  background:none;border:none;color:var(--text-muted);
+  font-size:13px;cursor:pointer;padding:2px 6px;border-radius:4px;
+}
+.agent-panel-close:hover{background:var(--border)}
+/* Timeline steps */
+.timeline{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.tl-step{
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;color:var(--text-muted);
+  padding:5px 8px;border-radius:var(--radius-xs);
+  transition:background .2s;
+}
+.tl-step.done{color:var(--success);background:var(--success-bg)}
+.tl-step.running{color:var(--brand);background:var(--brand-light);animation:pulse 1s ease-in-out infinite}
+.tl-step.failed{color:var(--danger);background:var(--danger-bg)}
+.tl-step.pending{color:var(--text-muted)}
+.tl-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+/* Action preview card */
+.preview-card{
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  margin-top:6px;
+  box-shadow:var(--shadow-sm);
+}
+.preview-card-title{
+  font-size:12px;font-weight:700;
+  color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;
+  margin-bottom:8px;
+}
+.preview-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:12.5px;padding:4px 0;
+  border-bottom:1px solid var(--border);gap:8px;
+}
+.preview-row:last-child{border-bottom:none}
+.preview-row span:last-child{font-weight:600;color:var(--text)}
+.sim-banner{
+  background:#fef3c7;
+  border:1.5px solid #f59e0b;
+  border-radius:var(--radius-xs);
+  padding:6px 10px;
+  font-size:11.5px;font-weight:700;
+  color:#92400e;
+  text-align:center;
+  margin-top:6px;
+  letter-spacing:.02em;
+}
+[data-theme="dark"] .sim-banner{background:#2a1a00;border-color:#b45309;color:#fcd34d}
+/* Risk badge */
+.risk-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:700;
+  padding:3px 10px;border-radius:20px;
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.risk-badge.LOW {background:#dcfce7;color:#15803d}
+.risk-badge.MEDIUM{background:#fef9c3;color:#a16207}
+.risk-badge.HIGH {background:#fee2e2;color:#b91c1c}
+[data-theme="dark"] .risk-badge.LOW {background:#0d2818;color:#4ade80}
+[data-theme="dark"] .risk-badge.MEDIUM{background:#2a2000;color:#fcd34d}
+[data-theme="dark"] .risk-badge.HIGH {background:#2d1010;color:#f87171}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ═══════════ LANDING PAGE ═══════════ -->
+  <div id="landingPage">
+    <div class="landing-bg"></div>
+
+    <!-- top bar -->
+    <div class="landing-top">
+      <div class="landing-logo">✦ Vaani Pay</div>
+      <div class="lang-toggle">
+        <button id="landLangEn" class="active" onclick="setLandingLang('en')">EN</button>
+        <button id="landLangHi" onclick="setLandingLang('hi')">हि</button>
+      </div>
+    </div>
+
+    <!-- mascot -->
+    <div class="mascot-wrap">
+      <div class="mascot-svg-wrap" id="mascotWrap">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="Vaani Pay mascot">
+          <defs>
+            <radialGradient id="bodyGrad" cx="50%" cy="45%" r="55%">
+              <stop offset="0%" stop-color="#8b83ff"/>
+              <stop offset="100%" stop-color="#5a52cc"/>
+            </radialGradient>
+            <radialGradient id="faceGrad" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stop-color="#fff9f0"/>
+              <stop offset="100%" stop-color="#ffe4c4"/>
+            </radialGradient>
+            <radialGradient id="coinGrad" cx="50%" cy="35%" r="65%">
+              <stop offset="0%" stop-color="#ffd96a"/>
+              <stop offset="100%" stop-color="#f59e0b"/>
+            </radialGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- ── Body / head ── -->
+          <!-- torso -->
+          <ellipse cx="100" cy="148" rx="44" ry="36" fill="url(#bodyGrad)" opacity=".9"/>
+          <!-- head -->
+          <ellipse cx="100" cy="95" rx="48" ry="46" fill="url(#bodyGrad)"/>
+          <!-- face area -->
+          <ellipse cx="100" cy="96" rx="34" ry="31" fill="url(#faceGrad)"/>
+
+          <!-- ── Ears ── -->
+          <ellipse cx="53" cy="90" rx="9" ry="11" fill="#7068e8"/>
+          <ellipse cx="147" cy="90" rx="9" ry="11" fill="#7068e8"/>
+          <ellipse cx="53" cy="90" rx="5" ry="7" fill="#ffe4c4"/>
+          <ellipse cx="147" cy="90" rx="5" ry="7" fill="#ffe4c4"/>
+
+          <!-- ── Eyes ── -->
+          <g class="eye-l">
+            <ellipse cx="87" cy="90" rx="8" ry="9" fill="#1a1a2e"/>
+            <ellipse cx="89.5" cy="87.5" rx="2.5" ry="2.5" fill="#fff"/>
+            <ellipse cx="87" cy="94" rx="7.5" ry="1.8" fill="#1a1a2e" opacity=".12"/>
+          </g>
+          <g class="eye-r">
+            <ellipse cx="113" cy="90" rx="8" ry="9" fill="#1a1a2e"/>
+            <ellipse cx="115.5" cy="87.5" rx="2.5" ry="2.5" fill="#fff"/>
+            <ellipse cx="113" cy="94" rx="7.5" ry="1.8" fill="#1a1a2e" opacity=".12"/>
+          </g>
+
+          <!-- ── Blush ── -->
+          <ellipse cx="78" cy="103" rx="8" ry="5" fill="#ffb3c1" opacity=".55"/>
+          <ellipse cx="122" cy="103" rx="8" ry="5" fill="#ffb3c1" opacity=".55"/>
+
+          <!-- ── Mouth smile ── -->
+          <path d="M89 109 Q100 118 111 109" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+          <!-- ── Headband ── -->
+          <rect x="55" y="64" width="90" height="12" rx="6" fill="#6c63ff" opacity=".85"/>
+          <!-- ₹ on headband -->
+          <text x="100" y="74" text-anchor="middle" font-family="Arial" font-weight="800" font-size="9" fill="#fff">₹</text>
+
+          <!-- ── Arms ── -->
+          <ellipse cx="57" cy="138" rx="10" ry="22" fill="#7068e8" transform="rotate(-20,57,138)"/>
+          <ellipse cx="143" cy="138" rx="10" ry="22" fill="#7068e8" transform="rotate(20,143,138)"/>
+
+          <!-- ── Coin in right hand ── -->
+          <g class="coin-group" transform="translate(145,130)">
+            <ellipse cx="0" cy="0" rx="12" ry="12" fill="url(#coinGrad)" filter="url(#glow)"/>
+            <ellipse cx="0" cy="0" rx="9" ry="9" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="0" y="4" text-anchor="middle" font-family="Arial" font-weight="800" font-size="8" fill="#fff">₹</text>
+          </g>
+
+          <!-- ── Sparkles ── -->
+          <g class="sp1"><text x="36" y="72" font-size="14">✦</text></g>
+          <g class="sp2"><text x="152" y="68" font-size="12">✦</text></g>
+          <g class="sp3"><text x="60" y="160" font-size="10">✦</text></g>
+
+          <!-- ── Badge on chest ── -->
+          <rect x="82" y="140" width="36" height="18" rx="9" fill="#fff" opacity=".22"/>
+          <text x="100" y="152" text-anchor="middle" font-family="Arial" font-weight="700" font-size="8" fill="#fff">AI PAY</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- speech bubble -->
+    <div class="speech-bubble-wrap">
+      <div class="speech-bubble" id="mascotBubble">
+        <span id="bubbleText"></span><span class="bubble-cursor" id="bubbleCursor"></span>
+      </div>
+    </div>
+
+    <!-- progress dots -->
+    <div class="bubble-dots" id="bubbleDots"></div>
+
+    <!-- CTA buttons -->
+    <div class="landing-cta">
+      <button class="btn-cta-primary" id="landingGetStarted" data-en="Get Started 🚀" data-hi="शुरू करें 🚀">Get Started 🚀</button>
+      <button class="btn-cta-secondary" id="landingLogin" data-en="I already have an account" data-hi="मेरा खाता पहले से है">I already have an account</button>
+    </div>
+    <div class="landing-tagline" id="landingTagline" data-en="Bilingual · AI Powered · Secure Payments" data-hi="द्विभाषी · AI संचालित · सुरक्षित भुगतान">
+      Bilingual · AI Powered · Secure Payments
+    </div>
+  </div>
+  <!-- ═══════════ END LANDING ═══════════ -->
+
+  <!-- ─── Header ─── -->
+  <header>
+    <div class="avatar">💸</div>
+    <div class="titles">
+      <h1 id="headerTitle">Vaani Pay</h1>
+      <p><span class="status-dot" id="statusDot"></span><span id="statusText">Connecting...</span></p>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn hidden" id="walletBtn" title="Wallet">💳</button>
+      <button class="header-btn hidden" id="profileBtn" title="Profile">👤</button>
+      <button id="darkToggle" title="Toggle dark mode">🌙</button>
+    </div>
+  </header>
+
+  <!-- ─── Auth overlay ─── -->
+  <div id="authOverlay" style="display:none">
+    <div class="auth-icon">✦</div>
+    <h2 id="authHeading">Welcome back</h2>
+    <p class="subtitle" data-i18n="sign_in_to_continue">Sign in to your account to continue.</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" data-i18n="login">Log In</button>
+      <button class="auth-tab" id="tabSignup" data-i18n="signup">Sign Up</button>
+    </div>
+
+    <form id="loginForm">
+      <div class="field-label" data-i18n="email">Email</div>
+      <input type="email" id="loginEmail" autocomplete="username" required />
+      <div class="field-label" data-i18n="password">Password</div>
+      <input type="password" id="loginPassword" autocomplete="current-password" required />
+      <button type="submit" class="btn-primary" id="loginBtn" data-i18n="login">Log In</button>
+      <div id="loginError" class="form-error" style="color:var(--danger)"></div>
+    </form>
+
+    <form id="signupForm" class="hidden">
+      <div class="field-label" data-i18n="full_name">Full Name</div>
+      <input type="text" id="suName" required />
+      <div class="field-label" data-i18n="email">Email</div>
+      <input type="email" id="suEmail" autocomplete="username" required />
+      <div class="field-label" data-i18n="phone">Phone Number</div>
+      <input type="tel" id="suPhone" />
+      <div class="field-label" data-i18n="password">Password</div>
+      <input type="password" id="suPassword" autocomplete="new-password" required />
+      <div class="field-label" data-i18n="confirm_password">Confirm Password</div>
+      <input type="password" id="suPasswordConfirm" autocomplete="new-password" required />
+      <div class="field-label" data-i18n="language">Language</div>
+      <select id="suLanguage">
+        <option value="en">English</option>
+        <option value="hi">हिन्दी (Hindi)</option>
+      </select>
+      <button type="submit" class="btn-primary" id="signupBtn" data-i18n="create_account">Create Account</button>
+      <div id="signupError" class="form-error" style="color:var(--danger)"></div>
+      <div id="signupSuccess" style="color:var(--success);font-size:12px;margin-top:6px;min-height:14px;"></div>
+    </form>
+
+    <button class="link-btn" id="switchToSignup" data-i18n="need_account">Need an account? Sign up</button>
+    <button class="link-btn hidden" id="switchToLogin" data-i18n="already_have_account">Already have an account? Log in</button>
+    <div id="authHint">Demo: <code>ramesh@example.com</code> / <code>Demo@1234</code></div>
+  </div>
+
+  <!-- ─── Chat messages ─── -->
+  <div id="messages"></div>
+
+  <!-- ─── Suggestions (dropdown up) ─── -->
+  <div id="suggestionsWrap">
+    <div id="suggestionsPanel">
+      <div class="sugg-panel-inner" id="suggestionsPanelInner"></div>
+    </div>
+    <button id="suggestionsToggle" type="button" aria-expanded="false">
+      <span class="sugg-toggle-left">💡 <span data-i18n="suggestions">Suggestions</span></span>
+      <span class="sugg-chevron" id="suggestionsChevron">▲</span>
+    </button>
+  </div>
+
+  <!-- ─── Agent Timeline Panel ─── -->
+  <div id="agentPanel">
+    <div class="agent-panel-inner">
+      <div class="agent-panel-header">
+        <span class="agent-panel-title">⚡ Agent Timeline</span>
+        <button class="agent-panel-close" id="agentPanelClose" title="Close">✕</button>
+      </div>
+      <div class="timeline" id="agentTimeline"></div>
+      <div id="agentPreview"></div>
+      <div id="agentRisk"></div>
+    </div>
+  </div>
+
+  <!-- ─── Chat input ─── -->
+  <form id="chatForm">
+    <input type="text" id="textInput" data-i18n-placeholder="type_a_message" placeholder="Type a message..." autocomplete="off" disabled />
+    <button type="submit" id="sendBtn" disabled>➤</button>
+  </form>
+</div>
+
+<!-- ════════ PROFILE MODAL ════════ -->
+<div class="modal-backdrop" id="profileBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3 data-i18n="profile">Profile</h3>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-section">
+      <h4 data-i18n="profile">Profile</h4>
+      <div class="profile-row"><span data-i18n="full_name">Full Name</span><span id="pfName">—</span></div>
+      <div class="profile-row"><span data-i18n="email">Email</span><span id="pfEmail">—</span></div>
+      <div class="profile-row"><span data-i18n="phone">Phone</span><span id="pfPhone">—</span></div>
+      <div class="field-label" data-i18n="full_name">Full Name</div>
+      <input type="text" id="pfEditName" />
+      <div class="field-label" data-i18n="phone">Phone</div>
+      <input type="tel" id="pfEditPhone" />
+      <button class="btn-secondary" id="pfSaveBtn" data-i18n="save">Save</button>
+      <div class="form-error" id="pfError" style="color:var(--danger)"></div>
+    </div>
+    <div class="modal-section">
+      <h4 data-i18n="language">Language</h4>
+      <div class="lang-switcher">
+        <div class="lang-option" id="langEnOption">English</div>
+        <div class="lang-option" id="langHiOption">हिन्दी</div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <h4 data-i18n="change_password">Change Password</h4>
+      <div class="field-label" data-i18n="current_password">Current Password</div>
+      <input type="password" id="cpCurrent" />
+      <div class="field-label" data-i18n="new_password">New Password</div>
+      <input type="password" id="cpNew" />
+      <button class="btn-secondary" id="cpSaveBtn" data-i18n="change_password">Change Password</button>
+      <div class="form-error" id="cpError"></div>
+    </div>
+    <div class="modal-section">
+      <button class="btn-secondary" id="logoutBtn" data-i18n="logout">Logout</button>
+    </div>
+    <div class="modal-section">
+      <h4 data-i18n="delete_account">Delete Account</h4>
+      <div class="warning-box" data-i18n="delete_account_warning">This will permanently delete your account and all data.</div>
+      <div id="deleteConfirmBox" class="hidden">
+        <div class="field-label" data-i18n="password">Password</div>
+        <input type="password" id="delPassword" />
+        <button class="btn-danger" id="delConfirmBtn" data-i18n="confirm">Confirm</button>
+        <button class="btn-secondary" id="delCancelBtn" data-i18n="cancel">Cancel</button>
+        <div class="form-error" id="delError" style="color:var(--danger)"></div>
+      </div>
+      <button class="btn-danger" id="delStartBtn" data-i18n="delete_account">Delete Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ WALLET MODAL ════════ -->
+<div class="modal-backdrop" id="walletBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3 data-i18n="wallet">Wallet</h3>
+      <button class="modal-close" id="walletModalClose">✕</button>
+    </div>
+    <div class="wallet-tabs" id="walletTabsBar">
+      <button class="wallet-tab active" id="walletTabOverview" data-i18n="my_account">My Account</button>
+      <button class="wallet-tab" id="walletTabSend" data-i18n="send_money">Send Money</button>
+      <button class="wallet-tab" id="walletTabHistory" data-i18n="transaction_history">History</button>
+    </div>
+
+    <!-- ── PIN Auth pane ── -->
+    <div id="walletPanePin" class="hidden" style="padding:16px 18px">
+      <div class="pin-context-box">
+        <div class="confirm-row"><span data-i18n="amount">Amount</span><span id="pinAmount"></span></div>
+        <div class="confirm-row hidden" id="pinRecipientRow"><span data-i18n="recipient">Recipient</span><span id="pinRecipient"></span></div>
+      </div>
+      <div class="field-label" data-i18n="pin_auth_title">PIN Authentication</div>
+      <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 12px" data-i18n="pin_auth_subtitle">Enter your secure PIN to authorize this payment.</p>
+      <div class="field-label" data-i18n="pin_input_label">Enter PIN</div>
+      <div class="pin-input-row">
+        <input type="password" id="pinAuthInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" />
+        <button type="button" class="pin-toggle-btn" id="pinToggleBtn" data-i18n="pin_show">Show</button>
+      </div>
+      <div class="form-error" id="pinAuthError" style="color:var(--danger)"></div>
+      <button class="btn-primary" id="pinAuthenticateBtn" data-i18n="pin_authenticate_button">Authenticate &amp; Pay</button>
+      <button class="btn-secondary" id="pinCancelBtn" data-i18n="pin_cancel_button">Cancel</button>
+      <div class="pin-security-note" data-i18n="pin_auth_note">Vaani Pay never stores or transmits your PIN. It is used only to authorize this transaction on your device.</div>
+    </div>
+
+    <!-- ── Overview pane ── -->
+    <div id="walletPaneOverview">
+      <div class="balance-card">
+        <div class="balance-label" data-i18n="available_balance">Available Balance</div>
+        <div class="balance-amount" id="waBalance">₹0.00</div>
+      </div>
+      <div class="account-info-box">
+        <div class="profile-row"><span data-i18n="payment_id">Payment ID</span><span id="waPaymentId">—</span></div>
+        <div class="profile-row"><span data-i18n="account_number">Account Number</span><span id="waAccountNumber">—</span></div>
+        <div class="profile-row"><span data-i18n="ifsc_code">IFSC Code</span><span id="waIfsc">—</span></div>
+      </div>
+      <div class="modal-section">
+        <h4 data-i18n="add_money">Add Money</h4>
+        <div id="addMoneyForm">
+          <div class="field-label" data-i18n="enter_amount">Enter Amount</div>
+          <input type="number" id="addMoneyAmount" min="1" step="0.01" placeholder="₹ Amount" />
+          <button class="btn-primary" id="addMoneyBtn" data-i18n="add_money">Add Money</button>
+          <div class="form-error" id="addMoneyError" style="color:var(--danger)"></div>
+        </div>
+        <div id="addMoneyConfirmBox" class="hidden">
+          <div class="confirm-row"><span data-i18n="amount">Amount</span><span id="amcAmount"></span></div>
+          <button class="btn-primary" id="amcConfirmBtn" data-i18n="confirm_transfer_button">Confirm</button>
+          <button class="btn-secondary" id="amcCancelBtn" data-i18n="cancel">Cancel</button>
+        </div>
+        <div id="addMoneySuccessBox" class="hidden success-box">
+          <div class="big-check">✅</div>
+          <div class="success-title" id="amsTitle"></div>
+          <div class="success-detail" id="amsBalance"></div>
+          <div class="success-meta" id="amsTxnId"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Send Money pane ── -->
+    <div id="walletPaneSend" class="hidden" style="padding:0 18px 8px">
+      <div id="sendStep1">
+        <div id="beneficiaryChips"></div>
+        <div class="field-label" data-i18n="recipient_name">Recipient Name</div>
+        <input type="text" id="smRecipientName" />
+        <div class="field-label" data-i18n="recipient_account_number">Account Number</div>
+        <input type="text" id="smAccountNumber" />
+        <div class="field-label" data-i18n="ifsc_code">IFSC Code</div>
+        <input type="text" id="smIfsc" placeholder="VPAY0001234" />
+        <div class="field-label" data-i18n="amount">Amount (₹)</div>
+        <input type="number" id="smAmount" min="1" step="0.01" />
+        <div class="field-label" data-i18n="note_optional">Note (optional)</div>
+        <input type="text" id="smNote" />
+        <button class="btn-primary" id="smContinueBtn" data-i18n="validate_and_continue">Validate &amp; Continue</button>
+        <div class="form-error" id="smError" style="color:var(--danger)"></div>
+      </div>
+      <div id="sendStep2" class="hidden">
+        <h4 style="margin:12px 0 8px;font-size:14px;font-weight:700" data-i18n="confirm_transfer">Confirm Transfer</h4>
+        <div class="confirm-row"><span data-i18n="recipient">Recipient</span><span id="ctRecipient"></span></div>
+        <div class="confirm-row"><span data-i18n="account">Account</span><span id="ctAccount"></span></div>
+        <div class="confirm-row"><span data-i18n="ifsc_code">IFSC</span><span id="ctIfsc"></span></div>
+        <div class="confirm-row"><span data-i18n="amount">Amount</span><span id="ctAmount"></span></div>
+        <div class="confirm-row"><span data-i18n="transaction_fee">Fee</span><span id="ctFee"></span></div>
+        <div class="confirm-row" style="font-weight:700"><span data-i18n="total_debit">Total Debit</span><span id="ctTotal"></span></div>
+        <button class="btn-primary" id="ctConfirmBtn" data-i18n="confirm_transfer_button">Confirm Transfer</button>
+        <button class="btn-secondary" id="ctCancelBtn" data-i18n="cancel">Cancel</button>
+        <div class="form-error" id="ctError" style="color:var(--danger)"></div>
+      </div>
+      <div id="sendStep3" class="hidden">
+        <div class="success-box" style="margin-top:12px">
+          <div class="big-check">✅</div>
+          <div class="success-title" data-i18n="transfer_successful">Transfer Successful</div>
+          <div class="success-detail" id="tsSummary"></div>
+          <div class="success-meta" id="tsTxnId"></div>
+        </div>
+        <div id="saveBeneficiaryBox">
+          <div class="field-label" data-i18n="save_beneficiary_prompt">Save this recipient?</div>
+          <button class="btn-secondary" id="saveBeneficiaryBtn" data-i18n="save_beneficiary">Save Beneficiary</button>
+        </div>
+        <button class="btn-primary" id="sendAnotherBtn" data-i18n="send_money">Send Money Again</button>
+      </div>
+    </div>
+
+    <!-- ── History pane ── -->
+    <div id="walletPaneHistory" class="hidden" style="padding:10px 18px 8px">
+      <div class="filter-chips">
+        <button class="filter-chip active" data-filter="all" data-i18n="filter_all">All</button>
+        <button class="filter-chip" data-filter="add_money" data-i18n="filter_add_money">Added</button>
+        <button class="filter-chip" data-filter="sent" data-i18n="filter_sent">Sent</button>
+        <button class="filter-chip" data-filter="received" data-i18n="filter_received">Received</button>
+        <button class="filter-chip" data-filter="failed" data-i18n="filter_failed">Failed</button>
+        <button class="filter-chip" data-filter="pending" data-i18n="filter_pending">Pending</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const state = {
+  token: localStorage.getItem("vaani_token") || null,
+  user: JSON.parse(localStorage.getItem("vaani_user") || "null"),
+  lang: "en",
+  ui: {},
+  ws: null,
+  authenticated: false,
+  darkMode: localStorage.getItem("vaani_dark") === "1",
+};
+
+const el = (id) => document.getElementById(id);
+
+// ── Dark mode ──
+function applyDarkMode(on) {
+  document.documentElement.setAttribute("data-theme", on ? "dark" : "light");
+  el("darkToggle").textContent = on ? "☀️" : "🌙";
+  state.darkMode = on;
+  localStorage.setItem("vaani_dark", on ? "1" : "0");
+}
+applyDarkMode(state.darkMode);
+el("darkToggle").addEventListener("click", () => applyDarkMode(!state.darkMode));
+
+// ═══════════════════════════════════════════════
+// LANDING PAGE  (mascot + speech bubble)
+// ═══════════════════════════════════════════════
+const BUBBLE_MESSAGES = {
+  en: [
+    "Hi! I'm Vaani 👋",
+    "I can check your balance instantly.",
+    "I can help you add money to your wallet.",
+    "Send money using account details.",
+    "I show & explain all your transactions.",
+    "Talk to me in English or Hindi.",
+    "Powered by AI — try me! 🤖",
+  ],
+  hi: [
+    "नमस्ते! मैं वाणी हूं 👋",
+    "मैं तुरंत आपका बैलेंस बता सकती हूं।",
+    "मैं आपके वॉलेट में पैसे जोड़ने में मदद करती हूं।",
+    "खाता नंबर से पैसे भेजें।",
+    "सभी लेनदेन देखें और समझें।",
+    "अंग्रेज़ी या हिंदी में बात करें।",
+    "AI द्वारा संचालित — मुझे आज़माएं! 🤖",
+  ],
+};
+
+let _bubbleIdx = 0;
+let _bubbleTimer = null;
+let _landingLang = "en";
+
+function setLandingLang(lang) {
+  _landingLang = lang;
+  el("landLangEn").classList.toggle("active", lang === "en");
+  el("landLangHi").classList.toggle("active", lang === "hi");
+  const btnGet = el("landingGetStarted");
+  const btnLogin = el("landingLogin");
+  const tagline = el("landingTagline");
+  btnGet.textContent = btnGet.getAttribute("data-" + lang) || btnGet.textContent;
+  btnLogin.textContent = btnLogin.getAttribute("data-" + lang) || btnLogin.textContent;
+  tagline.textContent = tagline.getAttribute("data-" + lang) || tagline.textContent;
+  _bubbleIdx = 0;
+  clearTimeout(_bubbleTimer);
+  renderBubbleDots();
+  typeBubbleMessage();
+}
+
+function renderBubbleDots() {
+  const msgs = BUBBLE_MESSAGES[_landingLang];
+  const wrap = el("bubbleDots");
+  wrap.innerHTML = "";
+  msgs.forEach((_, i) => {
+    const d = document.createElement("span");
+    d.className = "bubble-dot" + (i === _bubbleIdx ? " active" : "");
+    wrap.appendChild(d);
+  });
+}
+
+function updateActiveDot() {
+  const dots = el("bubbleDots").querySelectorAll(".bubble-dot");
+  dots.forEach((d, i) => d.classList.toggle("active", i === _bubbleIdx));
+}
+
+async function typeBubbleMessage() {
+  const msgs = BUBBLE_MESSAGES[_landingLang];
+  const msg = msgs[_bubbleIdx];
+  const span = el("bubbleText");
+  const cursor = el("bubbleCursor");
+  span.textContent = "";
+  cursor.style.display = "inline-block";
+  updateActiveDot();
+
+  for (let i = 0; i <= msg.length; i++) {
+    span.textContent = msg.slice(0, i);
+    await sleep(38);
+  }
+  await sleep(2000);
+  // fade out
+  el("mascotBubble").style.opacity = "0";
+  el("mascotBubble").style.transition = "opacity .35s";
+  await sleep(360);
+  _bubbleIdx = (_bubbleIdx + 1) % msgs.length;
+  el("mascotBubble").style.opacity = "1";
+  _bubbleTimer = setTimeout(typeBubbleMessage, 80);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Mascot react on hover
+el("mascotWrap").addEventListener("mouseenter", () => {
+  el("mascotWrap").querySelector("svg").style.animationPlayState = "paused";
+  el("mascotWrap").querySelector("svg").style.transform = "scale(1.08) rotate(3deg)";
+  el("mascotWrap").querySelector("svg").style.transition = "transform .3s";
+});
+el("mascotWrap").addEventListener("mouseleave", () => {
+  el("mascotWrap").querySelector("svg").style.transform = "";
+  el("mascotWrap").querySelector("svg").style.transition = "";
+  el("mascotWrap").querySelector("svg").style.animationPlayState = "running";
+});
+
+// CTA buttons
+el("landingGetStarted").addEventListener("click", () => {
+  el("landingPage").classList.add("hidden-page");
+  el("authOverlay").style.display = "flex";
+  switchAuthTab("signup");
+  // pre-fill language from landing selector
+  el("suLanguage").value = _landingLang;
+  loadI18n(_landingLang);
+  setTimeout(() => el("landingPage").style.display = "none", 420);
+});
+
+el("landingLogin").addEventListener("click", () => {
+  el("landingPage").classList.add("hidden-page");
+  el("authOverlay").style.display = "flex";
+  switchAuthTab("login");
+  loadI18n(_landingLang);
+  setTimeout(() => el("landingPage").style.display = "none", 420);
+});
+
+// boot landing
+renderBubbleDots();
+typeBubbleMessage();
+
+// ═══════════════════════════════════════════════
+// i18n
+// ═══════════════════════════════════════════════
+async function loadI18n(lang) {
+  try {
+    const res = await fetch(`/i18n/${lang}`);
+    state.ui = await res.json();
+  } catch (e) { state.ui = {}; }
+  state.lang = lang;
+  applyI18n();
+}
+
+function applyI18n() {
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (state.ui[key]) node.textContent = state.ui[key];
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+    const key = node.getAttribute("data-i18n-placeholder");
+    if (state.ui[key]) node.placeholder = state.ui[key];
+  });
+  el("headerTitle").textContent = state.ui.app_title || "Vaani Pay";
+  renderSuggestions();
+  document.documentElement.lang = state.lang;
+}
+
+// ── Suggestions (now a dropdown-up grid) ──
+function renderSuggestions() {
+  const chips = [
+    { key: "suggestion_check_balance",      icon: "💰" },
+    { key: "suggestion_recent_transactions", icon: "📋" },
+    { key: "suggestion_add_money",          icon: "➕" },
+    { key: "suggestion_send_money",         icon: "💸" },
+    { key: "suggestion_spending_summary",   icon: "📊" },
+    { key: "suggestion_payment_status",     icon: "🔍" },
+    { key: "suggestion_beneficiaries",      icon: "👥" },
+    { key: "suggestion_simulation_mode",    icon: "🧪" },
+  ];
+  const inner = el("suggestionsPanelInner");
+  inner.innerHTML = "";
+  chips.forEach(({ key, icon }) => {
+    const raw = state.ui[key] || key;
+    const label = raw.replace(/^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}\s]+/u, "").trim() || raw;
+    const btn = document.createElement("button");
+    btn.className = "suggestion-chip";
+    btn.innerHTML = `<span class="chip-icon">${icon}</span><span>${label}</span>`;
+    btn.addEventListener("click", () => {
+      sendMessage(raw.replace(/^[^\w₹]+/, "").trim());
+      closeSuggestions();
+    });
+    inner.appendChild(btn);
+  });
+}
+
+let _suggOpen = false;
+function toggleSuggestions() {
+  _suggOpen = !_suggOpen;
+  el("suggestionsPanel").classList.toggle("open", _suggOpen);
+  el("suggestionsChevron").classList.toggle("open", _suggOpen);
+  el("suggestionsToggle").setAttribute("aria-expanded", _suggOpen);
+}
+function closeSuggestions() {
+  _suggOpen = false;
+  el("suggestionsPanel").classList.remove("open");
+  el("suggestionsChevron").classList.remove("open");
+}
+el("suggestionsToggle").addEventListener("click", toggleSuggestions);
+// close when clicking outside
+document.addEventListener("click", (e) => {
+  if (_suggOpen && !el("suggestionsWrap").contains(e.target)) closeSuggestions();
+});
+
+// ═══════════════════════════════════════════════
+// API helper
+// ═══════════════════════════════════════════════
+async function api(path, { method = "GET", body, auth: needsAuth = true } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (needsAuth && state.token) headers["Authorization"] = `Bearer ${state.token}`;
+  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* no body */ }
+  if (!res.ok) {
+    const message = data.detail || data.error || (state.ui.error_generic || "Something went wrong.");
+    throw new Error(message);
+  }
+  return data;
+}
+
+// ═══════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════
+el("tabLogin").addEventListener("click", () => switchAuthTab("login"));
+el("tabSignup").addEventListener("click", () => switchAuthTab("signup"));
+el("switchToSignup").addEventListener("click", () => switchAuthTab("signup"));
+el("switchToLogin").addEventListener("click", () => switchAuthTab("login"));
+
+function switchAuthTab(which) {
+  const isLogin = which === "login";
+  el("tabLogin").classList.toggle("active", isLogin);
+  el("tabSignup").classList.toggle("active", !isLogin);
+  el("loginForm").classList.toggle("hidden", !isLogin);
+  el("signupForm").classList.toggle("hidden", isLogin);
+  el("switchToSignup").classList.toggle("hidden", !isLogin);
+  el("switchToLogin").classList.toggle("hidden", isLogin);
+  el("authHeading").textContent = isLogin
+    ? (state.ui.login || "Log In")
+    : (state.ui.signup || "Sign Up");
+}
+
+el("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  el("loginError").textContent = "";
+  el("loginBtn").disabled = true;
+  try {
+    const data = await api("/auth/login", {
+      method: "POST", auth: false,
+      body: { email: el("loginEmail").value.trim(), password: el("loginPassword").value },
+    });
+    onAuthSuccess(data.token, data.user);
+  } catch (err) {
+    el("loginError").textContent = err.message;
+  } finally { el("loginBtn").disabled = false; }
+});
+
+el("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  el("signupError").textContent = "";
+  el("signupSuccess").textContent = "";
+  if (el("suPassword").value !== el("suPasswordConfirm").value) {
+    el("signupError").textContent = state.ui.error_passwords_dont_match || "Passwords do not match.";
+    return;
+  }
+  el("signupBtn").disabled = true;
+  try {
+    const result = await api("/auth/register", {
+      method: "POST", auth: false,
+      body: {
+        name: el("suName").value.trim(),
+        email: el("suEmail").value.trim(),
+        password: el("suPassword").value,
+        phone: el("suPhone").value.trim() || null,
+        language: el("suLanguage").value,
+      },
+    });
+    const acctNote = result.payment_account ? ` · Payment ID: ${result.payment_account.payment_id}` : "";
+    el("signupSuccess").textContent = (result.message || "Account created!") + acctNote;
+    el("loginEmail").value = el("suEmail").value.trim();
+    setTimeout(() => switchAuthTab("login"), 1600);
+  } catch (err) {
+    el("signupError").textContent = err.message;
+  } finally { el("signupBtn").disabled = false; }
+});
+
+function onAuthSuccess(token, user) {
+  state.token = token;
+  state.user = user;
+  localStorage.setItem("vaani_token", token);
+  localStorage.setItem("vaani_user", JSON.stringify(user));
+  el("authOverlay").style.display = "none";
+  loadI18n(user.language || "en").then(() => connectWebSocket());
+}
+
+// ═══════════════════════════════════════════════
+// Chat
+// ═══════════════════════════════════════════════
+function addMessage(text, cls) {
+  const div = document.createElement("div");
+  div.className = `msg ${cls}`;
+  div.textContent = text;
+  el("messages").appendChild(div);
+  el("messages").scrollTop = el("messages").scrollHeight;
+  return div;
+}
+
+function sendMessage(text) {
+  if (!state.authenticated || !state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+  addMessage(text, "user");
+  state.ws.send(JSON.stringify({ type: "text", text }));
+}
+
+el("chatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = el("textInput").value.trim();
+  if (!text) return;
+  sendMessage(text);
+  el("textInput").value = "";
+  closeSuggestions();
+});
+
+// ═══════════════════════════════════════════════
+// WebSocket
+// ═══════════════════════════════════════════════
+function connectWebSocket() {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  state.ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+  state.ws.onopen = () => {
+    el("statusDot").classList.remove("offline");
+    el("statusText").textContent = state.authenticated ? (state.ui.online || "Online") : "Connected";
+    if (state.token) state.ws.send(JSON.stringify({ type: "auth", token: state.token }));
+  };
+
+  state.ws.onclose = () => {
+    el("statusDot").classList.add("offline");
+    el("statusText").textContent = state.ui.offline || "Disconnected — reconnecting...";
+    el("textInput").disabled = true;
+    el("sendBtn").disabled = true;
+    if (state.token) setTimeout(connectWebSocket, 2000);
+  };
+
+  state.ws.onerror = () => el("statusDot").classList.add("offline");
+
+  state.ws.onmessage = (event) => handleServerEvent(JSON.parse(event.data));
+}
+
+// ─── Agent Panel helpers ────────────────────────────────────────────────────
+const STEP_ICONS = { done:"✓", running:"⟳", failed:"✕", pending:"○" };
+
+function renderTimeline(steps) {
+  const panel    = el("agentPanel");
+  const timeline = el("agentTimeline");
+  if (!steps || steps.length === 0) return;
+  panel.classList.add("visible");
+  timeline.innerHTML = "";
+  steps.forEach((s) => {
+    const div   = document.createElement("div");
+    div.className = `tl-step ${s.status}`;
+    const icon  = STEP_ICONS[s.status] || "○";
+    div.innerHTML = `<span class="tl-icon">${icon}</span><span>${s.label}</span>`;
+    if (s.tool) {
+      const tool = document.createElement("span");
+      tool.style.cssText = "margin-left:auto;font-size:10px;opacity:.6;font-family:monospace";
+      tool.textContent = s.tool;
+      div.appendChild(tool);
+    }
+    timeline.appendChild(div);
+  });
+}
+
+function renderPreview(preview) {
+  const wrap = el("agentPreview");
+  if (!preview) { wrap.innerHTML = ""; return; }
+  el("agentPanel").classList.add("visible");
+  const fields = [
+    preview.action    && ["Action",    preview.action],
+    preview.recipient && ["Recipient", preview.recipient],
+    preview.account   && ["Account",   preview.account],
+    preview.ifsc      && ["IFSC",      preview.ifsc],
+    preview.amount    && ["Amount",    preview.amount],
+    preview.fee       && ["Fee",       preview.fee],
+    preview.method    && ["Method",    preview.method],
+  ].filter(Boolean);
+  const rows = fields.map(([k,v]) =>
+    `<div class="preview-row"><span>${k}</span><span>${v}</span></div>`
+  ).join("");
+  const simBanner = preview.sim_mode
+    ? `<div class="sim-banner">🧪 SIMULATION — No real payment will be executed</div>` : "";
+  wrap.innerHTML = `
+    <div class="preview-card">
+      <div class="preview-card-title">📋 Action Preview</div>
+      ${rows}
+      ${simBanner}
+    </div>`;
+}
+
+function renderRisk(risk) {
+  const wrap = el("agentRisk");
+  if (!risk) { wrap.innerHTML = ""; return; }
+  el("agentPanel").classList.add("visible");
+  const levelDot = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴"}[risk.level] || "";
+  const reasons  = (risk.reasons || []).map(r => `<li>${r}</li>`).join("");
+  wrap.innerHTML = `
+    <div style="margin-top:6px;padding:8px 10px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:${reasons?'6px':'0'}">
+        <span style="font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Risk</span>
+        <span class="risk-badge ${risk.level}">${levelDot} ${risk.level}</span>
+        <span style="font-size:10.5px;color:var(--text-muted);margin-left:auto">score: ${(risk.score*100).toFixed(0)}%</span>
+      </div>
+      ${reasons ? `<ul style="font-size:11.5px;color:var(--text-muted);padding-left:16px;line-height:1.6">${reasons}</ul>` : ""}
+    </div>`;
+}
+
+function clearAgentPanel() {
+  el("agentTimeline").innerHTML = "";
+  el("agentPreview").innerHTML  = "";
+  el("agentRisk").innerHTML     = "";
+  el("agentPanel").classList.remove("visible");
+}
+
+el("agentPanelClose").addEventListener("click", clearAgentPanel);
+
+// ─── Main event handler ──────────────────────────────────────────────────────
+function handleServerEvent(data) {
+  if (data.type === "auth_success") {
+    state.authenticated = true;
+    el("profileBtn").classList.remove("hidden");
+    el("walletBtn").classList.remove("hidden");
+    el("statusText").textContent = `${state.ui.online || "Online"} — ${data.name}`;
+    el("textInput").disabled = false;
+    el("sendBtn").disabled = false;
+    if (data.language && data.language !== state.lang) loadI18n(data.language);
+    if (el("messages").children.length === 0) {
+      addMessage(`${state.ui.what_would_you_like || "Hi! What would you like to do?"} (${data.name.split(" ")[0]})`, "bot");
+    }
+  } else if (data.type === "auth_error") {
+    logoutLocal();
+    el("authOverlay").style.display = "flex";
+    el("loginError").textContent = data.error;
+  } else if (data.type === "status" || data.type === "tool_start" || data.type === "tool_result") {
+    addMessage(data.text, "status");
+  } else if (data.type === "timeline") {
+    renderTimeline(data.steps);
+  } else if (data.type === "preview") {
+    renderPreview(data);
+  } else if (data.type === "risk") {
+    renderRisk(data);
+  } else if (data.type === "message") {
+    document.querySelectorAll(".msg.status").forEach((e) => e.remove());
+    addMessage(data.text, "bot");
+    // Collapse timeline after final reply (keep it visible for 4s then slide away)
+    setTimeout(() => {
+      if (!el("agentPanel").matches(":hover")) clearAgentPanel();
+    }, 5000);
+  } else if (data.type === "error") {
+    document.querySelectorAll(".msg.status").forEach((e) => e.remove());
+    addMessage(data.error, "error");
+  }
+}
+
+// ═══════════════════════════════════════════════
+// Profile modal
+// ═══════════════════════════════════════════════
+el("profileBtn").addEventListener("click", openProfileModal);
+el("modalClose").addEventListener("click", closeProfileModal);
+el("profileBackdrop").addEventListener("click", (e) => { if (e.target === el("profileBackdrop")) closeProfileModal(); });
+
+async function openProfileModal() {
+  el("profileBackdrop").classList.add("open");
+  try {
+    const profile = await api("/users/me");
+    el("pfName").textContent = profile.name;
+    el("pfEmail").textContent = profile.email;
+    el("pfPhone").textContent = profile.phone || "—";
+    el("pfEditName").value = profile.name;
+    el("pfEditPhone").value = profile.phone || "";
+    updateLangSwitcherUI(profile.language);
+  } catch (err) { el("pfError").textContent = err.message; }
+}
+
+function closeProfileModal() {
+  el("profileBackdrop").classList.remove("open");
+  el("deleteConfirmBox").classList.add("hidden");
+  el("delStartBtn").classList.remove("hidden");
+}
+
+function updateLangSwitcherUI(lang) {
+  el("langEnOption").classList.toggle("active", lang === "en");
+  el("langHiOption").classList.toggle("active", lang === "hi");
+}
+
+el("pfSaveBtn").addEventListener("click", async () => {
+  el("pfError").textContent = "";
+  try {
+    const profile = await api("/users/me", {
+      method: "PUT",
+      body: { name: el("pfEditName").value.trim(), phone: el("pfEditPhone").value.trim() || null },
+    });
+    el("pfName").textContent = profile.name;
+    el("pfPhone").textContent = profile.phone || "—";
+    state.user.name = profile.name;
+    localStorage.setItem("vaani_user", JSON.stringify(state.user));
+  } catch (err) { el("pfError").textContent = err.message; }
+});
+
+el("langEnOption").addEventListener("click", () => setLanguage("en"));
+el("langHiOption").addEventListener("click", () => setLanguage("hi"));
+
+async function setLanguage(lang) {
+  try {
+    await api("/users/me/preferences", { method: "PUT", body: { language: lang } });
+    updateLangSwitcherUI(lang);
+    await loadI18n(lang);
+    if (state.ws) state.ws.close();
+    connectWebSocket();
+  } catch (err) { el("pfError").textContent = err.message; }
+}
+
+el("cpSaveBtn").addEventListener("click", async () => {
+  el("cpError").textContent = "";
+  try {
+    await api("/users/me/change-password", {
+      method: "POST",
+      body: { current_password: el("cpCurrent").value, new_password: el("cpNew").value },
+    });
+    el("cpCurrent").value = ""; el("cpNew").value = "";
+    el("cpError").style.color = "var(--success)";
+    el("cpError").textContent = "✓ Password changed";
+  } catch (err) {
+    el("cpError").style.color = "var(--danger)";
+    el("cpError").textContent = err.message;
+  }
+});
+
+el("logoutBtn").addEventListener("click", async () => {
+  try { await api("/auth/logout", { method: "POST" }); } catch (e) { /* ignore */ }
+  logoutLocal();
+  closeProfileModal();
+});
+
+function logoutLocal() {
+  state.token = null; state.user = null; state.authenticated = false;
+  localStorage.removeItem("vaani_token"); localStorage.removeItem("vaani_user");
+  if (state.ws) { state.ws.onclose = null; state.ws.close(); }
+  el("profileBtn").classList.add("hidden");
+  el("walletBtn").classList.add("hidden");
+  el("walletBackdrop").classList.remove("open");
+  el("messages").innerHTML = "";
+  el("textInput").disabled = true; el("sendBtn").disabled = true;
+  el("authOverlay").style.display = "flex";
+  // Restore landing
+  el("landingPage").style.display = "";
+  el("landingPage").classList.remove("hidden-page");
+  _bubbleIdx = 0; clearTimeout(_bubbleTimer); renderBubbleDots(); typeBubbleMessage();
+  switchAuthTab("login");
+}
+
+el("delStartBtn").addEventListener("click", () => {
+  el("delStartBtn").classList.add("hidden");
+  el("deleteConfirmBox").classList.remove("hidden");
+});
+el("delCancelBtn").addEventListener("click", () => {
+  el("deleteConfirmBox").classList.add("hidden");
+  el("delStartBtn").classList.remove("hidden");
+  el("delError").textContent = "";
+});
+el("delConfirmBtn").addEventListener("click", async () => {
+  el("delError").textContent = "";
+  try {
+    await api("/users/me", { method: "DELETE", body: { password: el("delPassword").value, confirm: true } });
+    closeProfileModal(); logoutLocal();
+  } catch (err) { el("delError").textContent = err.message; }
+});
+
+// ═══════════════════════════════════════════════
+// Wallet modal
+// ═══════════════════════════════════════════════
+const walletState = {
+  account: null,
+  beneficiaries: [],
+  pendingTransfer: null,
+  lastTransferResult: null,
+  historyFilter: "all",
+};
+
+el("walletBtn").addEventListener("click", openWalletModal);
+el("walletModalClose").addEventListener("click", closeWalletModal);
+el("walletBackdrop").addEventListener("click", (e) => { if (e.target === el("walletBackdrop")) closeWalletModal(); });
+
+function openWalletModal() {
+  el("walletBackdrop").classList.add("open");
+  switchWalletTab("overview"); loadWalletOverview();
+}
+function closeWalletModal() { el("walletBackdrop").classList.remove("open"); }
+
+el("walletTabOverview").addEventListener("click", () => { switchWalletTab("overview"); loadWalletOverview(); });
+el("walletTabSend").addEventListener("click", () => { switchWalletTab("send"); resetSendMoneyFlow(); loadBeneficiaries(); });
+el("walletTabHistory").addEventListener("click", () => { switchWalletTab("history"); loadHistory(walletState.historyFilter); });
+
+function switchWalletTab(tab) {
+  ["overview","send","history"].forEach((t) => {
+    el(`walletTab${t.charAt(0).toUpperCase()+t.slice(1)}`).classList.toggle("active", t === tab);
+    el(`walletPane${t.charAt(0).toUpperCase()+t.slice(1)}`).classList.toggle("hidden", t !== tab);
+  });
+}
+
+// ── PIN Auth ──
+let pinOnSuccess = null;
+let pinReturnTab = "overview";
+
+function showPinAuth({ amountText, recipientText, returnTab, onSuccess }) {
+  pinReturnTab = returnTab || "overview";
+  pinOnSuccess = onSuccess || null;
+  el("walletTabsBar").classList.add("hidden");
+  ["Overview","Send","History"].forEach((t) => el(`walletPane${t}`).classList.add("hidden"));
+  el("walletPanePin").classList.remove("hidden");
+  el("pinAmount").textContent = amountText;
+  if (recipientText) {
+    el("pinRecipient").textContent = recipientText;
+    el("pinRecipientRow").classList.remove("hidden");
+  } else el("pinRecipientRow").classList.add("hidden");
+  el("pinAuthInput").value = "";
+  el("pinAuthInput").type = "password";
+  el("pinToggleBtn").textContent = state.ui.pin_show || "Show";
+  el("pinAuthError").textContent = "";
+  el("pinAuthenticateBtn").disabled = false;
+  el("pinAuthenticateBtn").textContent = state.ui.pin_authenticate_button || "Authenticate & Pay";
+  el("pinAuthInput").focus();
+}
+
+function hidePinAuth() {
+  el("pinAuthInput").value = "";
+  el("walletPanePin").classList.add("hidden");
+  el("walletTabsBar").classList.remove("hidden");
+  switchWalletTab(pinReturnTab);
+  pinOnSuccess = null;
+}
+
+el("pinToggleBtn").addEventListener("click", () => {
+  const input = el("pinAuthInput");
+  const showing = input.type === "password";
+  input.type = showing ? "text" : "password";
+  el("pinToggleBtn").textContent = showing ? (state.ui.pin_hide || "Hide") : (state.ui.pin_show || "Show");
+});
+
+el("pinCancelBtn").addEventListener("click", hidePinAuth);
+
+el("pinAuthenticateBtn").addEventListener("click", async () => {
+  const pin = el("pinAuthInput").value;
+  el("pinAuthError").textContent = "";
+  if (!/^\d{4,6}$/.test(pin)) {
+    el("pinAuthError").textContent = state.ui.pin_error_length || "Please enter a valid 4-6 digit PIN.";
+    return;
+  }
+  el("pinAuthInput").value = "";
+  const callback = pinOnSuccess;
+  el("pinAuthenticateBtn").disabled = true;
+  el("pinAuthenticateBtn").textContent = state.ui.pin_authenticating || "Authenticating...";
+  try { if (callback) await callback(); }
+  finally { hidePinAuth(); }
+});
+
+// ── Wallet overview ──
+function formatMoney(amount) {
+  const sign = amount < 0 ? "-" : "";
+  return `${sign}₹${Math.abs(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+async function loadWalletOverview() {
+  try {
+    walletState.account = await api("/wallet/account");
+    renderWalletOverview();
+  } catch (err) { el("waBalance").textContent = "—"; }
+}
+
+function renderWalletOverview() {
+  const acc = walletState.account;
+  if (!acc) return;
+  el("waBalance").textContent = formatMoney(acc.balance);
+  el("waPaymentId").textContent = acc.payment_id;
+  el("waAccountNumber").textContent = acc.account_number;
+  el("waIfsc").textContent = acc.ifsc;
+}
+
+// Add Money
+el("addMoneyBtn").addEventListener("click", () => {
+  el("addMoneyError").textContent = "";
+  const amount = parseFloat(el("addMoneyAmount").value);
+  if (!amount || amount <= 0) { el("addMoneyError").textContent = state.ui.error_invalid_amount || "Please enter a valid amount."; return; }
+  el("amcAmount").textContent = formatMoney(amount);
+  el("addMoneyForm").classList.add("hidden");
+  el("addMoneyConfirmBox").classList.remove("hidden");
+});
+
+el("amcCancelBtn").addEventListener("click", () => {
+  el("addMoneyConfirmBox").classList.add("hidden");
+  el("addMoneyForm").classList.remove("hidden");
+});
+
+el("amcConfirmBtn").addEventListener("click", () => {
+  const amount = parseFloat(el("addMoneyAmount").value);
+  showPinAuth({ amountText: formatMoney(amount), returnTab: "overview", onSuccess: () => executeAddMoney(amount) });
+});
+
+async function executeAddMoney(amount) {
+  try {
+    const result = await api("/wallet/add-money", { method: "POST", body: { amount } });
+    el("addMoneyConfirmBox").classList.add("hidden");
+    el("amsTitle").textContent = `${formatMoney(result.amount)} ${state.ui.add_money || "added to wallet"}`;
+    el("amsBalance").textContent = `${state.ui.available_balance || "Balance"}: ${formatMoney(result.balance)}`;
+    el("amsTxnId").textContent = `${state.ui.transaction_id || "Txn ID"}: ${result.transaction_id}`;
+    el("addMoneySuccessBox").classList.remove("hidden");
+    el("addMoneyAmount").value = "";
+    walletState.account.balance = result.balance;
+    renderWalletOverview();
+    setTimeout(() => { el("addMoneySuccessBox").classList.add("hidden"); el("addMoneyForm").classList.remove("hidden"); }, 2800);
+  } catch (err) {
+    el("addMoneyConfirmBox").classList.add("hidden");
+    el("addMoneyForm").classList.remove("hidden");
+    el("addMoneyError").textContent = err.message;
+  }
+}
+
+// ── Beneficiaries ──
+async function loadBeneficiaries() {
+  try {
+    const result = await api("/wallet/beneficiaries");
+    walletState.beneficiaries = result.beneficiaries || [];
+    renderBeneficiaryChips();
+  } catch (err) { walletState.beneficiaries = []; }
+}
+
+function renderBeneficiaryChips() {
+  const wrap = el("beneficiaryChips");
+  wrap.innerHTML = "";
+  if (walletState.beneficiaries.length === 0) return;
+  const label = document.createElement("div");
+  label.className = "field-label";
+  label.textContent = state.ui.use_saved_beneficiary || "Use a saved recipient";
+  wrap.appendChild(label);
+  walletState.beneficiaries.forEach((b) => {
+    const chip = document.createElement("button");
+    chip.type = "button"; chip.className = "beneficiary-chip";
+    chip.textContent = `👤 ${b.recipient_name} (···${b.account_number.slice(-4)})`;
+    chip.addEventListener("click", () => {
+      el("smRecipientName").value = b.recipient_name;
+      el("smAccountNumber").value = "";
+      el("smIfsc").value = b.ifsc;
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+// ── Send Money ──
+function resetSendMoneyFlow() {
+  ["sendStep1","sendStep2","sendStep3"].forEach((id,i) => el(id).classList.toggle("hidden", i !== 0));
+  el("smError").textContent = "";
+  ["smRecipientName","smAccountNumber","smIfsc","smAmount","smNote"].forEach((id) => el(id).value = "");
+  walletState.pendingTransfer = null;
+}
+
+el("smContinueBtn").addEventListener("click", async () => {
+  el("smError").textContent = "";
+  const recipient_name = el("smRecipientName").value.trim();
+  const account_number = el("smAccountNumber").value.trim();
+  const ifsc = el("smIfsc").value.trim().toUpperCase();
+  const amount = parseFloat(el("smAmount").value);
+  const note = el("smNote").value.trim();
+  if (!recipient_name) { el("smError").textContent = state.ui.error_required_field || "Recipient name is required."; return; }
+  if (!amount || amount <= 0) { el("smError").textContent = state.ui.error_invalid_amount || "Please enter a valid amount."; return; }
+  el("smContinueBtn").disabled = true;
+  try {
+    const transfer = await api("/wallet/transfer/initiate", {
+      method: "POST",
+      body: { recipient_name, account_number, ifsc: ifsc || "VPAY0001234", amount, note: note || null },
+    });
+    walletState.pendingTransfer = transfer;
+    el("ctRecipient").textContent = transfer.recipient_name;
+    el("ctAccount").textContent = transfer.account_number_masked;
+    el("ctIfsc").textContent = transfer.ifsc;
+    el("ctAmount").textContent = formatMoney(transfer.amount);
+    el("ctFee").textContent = formatMoney(transfer.fee);
+    el("ctTotal").textContent = formatMoney(transfer.total_debit);
+    el("sendStep1").classList.add("hidden");
+    el("sendStep2").classList.remove("hidden");
+  } catch (err) { el("smError").textContent = err.message; }
+  finally { el("smContinueBtn").disabled = false; }
+});
+
+el("ctCancelBtn").addEventListener("click", async () => {
+  const t = walletState.pendingTransfer;
+  if (t) try { await api(`/wallet/transfers/${t.transaction_id}/cancel`, { method: "POST" }); } catch (e) {}
+  resetSendMoneyFlow();
+});
+
+el("ctConfirmBtn").addEventListener("click", () => {
+  const t = walletState.pendingTransfer;
+  if (!t) return;
+  showPinAuth({
+    amountText: formatMoney(t.total_debit),
+    recipientText: t.recipient_name,
+    returnTab: "send",
+    onSuccess: () => executeSendMoneyConfirm(t),
+  });
+});
+
+async function executeSendMoneyConfirm(transfer) {
+  el("ctError").textContent = "";
+  if (!transfer || !transfer.transaction_id) {
+    el("ctError").textContent = state.ui.error_generic || "Transfer could not be found. Please start again.";
+    return;
+  }
+  try {
+    const result = await api(`/wallet/transfers/${transfer.transaction_id}/confirm`, { method: "POST" });
+    walletState.lastTransferResult = result;
+    el("tsSummary").textContent = `${formatMoney(result.amount)} ${state.ui.sent_to || "sent to"} ${result.recipient_name}`;
+    el("tsTxnId").textContent = `${state.ui.transaction_id || "Transaction ID"}: ${result.transaction_id}`;
+    el("sendStep2").classList.add("hidden");
+    el("sendStep3").classList.remove("hidden");
+    if (walletState.account) { walletState.account.balance = result.balance; renderWalletOverview(); }
+    const alreadySaved = walletState.beneficiaries.some((b) => b.recipient_name === result.recipient_name);
+    el("saveBeneficiaryBox").classList.toggle("hidden", alreadySaved);
+  } catch (err) { el("ctError").textContent = err.message; }
+}
+
+el("saveBeneficiaryBtn").addEventListener("click", async () => {
+  const t = walletState.pendingTransfer;
+  if (!t) return;
+  try {
+    const accountNumber = el("smAccountNumber").value.trim();
+    await api("/wallet/beneficiaries", {
+      method: "POST",
+      body: { recipient_name: t.recipient_name, account_number: accountNumber, ifsc: t.ifsc },
+    });
+    el("saveBeneficiaryBox").classList.add("hidden");
+    loadBeneficiaries();
+  } catch (err) {}
+});
+
+el("sendAnotherBtn").addEventListener("click", resetSendMoneyFlow);
+
+// ── Transaction History ──
+document.querySelectorAll(".filter-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".filter-chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    walletState.historyFilter = chip.getAttribute("data-filter");
+    loadHistory(walletState.historyFilter);
+  });
+});
+
+async function loadHistory(filter) {
+  const list = el("historyList");
+  list.innerHTML = "";
+  try {
+    const result = await api(`/wallet/transactions?filter=${encodeURIComponent(filter)}`);
+    const txns = result.transactions || [];
+    if (txns.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = state.ui.no_wallet_transactions || "No transactions to show yet.";
+      list.appendChild(empty);
+      return;
+    }
+    txns.forEach((tx) => list.appendChild(renderHistoryRow(tx)));
+  } catch (err) {
+    const empty = document.createElement("div");
+    empty.className = "empty-note"; empty.textContent = err.message;
+    list.appendChild(empty);
+  }
+}
+
+const TYPE_LABEL = {
+  CREDIT: () => state.ui.history_added || "Added",
+  DEBIT_TRANSFER: () => state.ui.history_sent_to || "Sent to",
+  CREDIT_TRANSFER: () => state.ui.history_received_from || "Received from",
+};
+const STATUS_LABEL = {
+  SUCCESS: () => state.ui.status_success || "Success",
+  PENDING: () => state.ui.status_pending || "Pending",
+  FAILED: () => state.ui.status_failed || "Failed",
+  CANCELLED: () => state.ui.status_cancelled || "Cancelled",
+};
+
+function renderHistoryRow(tx) {
+  const row = document.createElement("div");
+  row.className = "txn-row";
+  const main = document.createElement("div");
+  main.className = "txn-main";
+  const counterparty = document.createElement("div");
+  counterparty.className = "txn-counterparty";
+  counterparty.textContent = `${(TYPE_LABEL[tx.type] || (() => tx.type))()} ${tx.counterparty || ""}`;
+  const meta = document.createElement("div");
+  meta.className = "txn-meta";
+  meta.textContent = (tx.date || "").slice(0, 10) + (tx.description ? ` · ${tx.description}` : "");
+  main.appendChild(counterparty); main.appendChild(meta);
+  const right = document.createElement("div");
+  right.style.textAlign = "right";
+  const amt = document.createElement("div");
+  amt.className = `txn-amount ${tx.signed_amount >= 0 ? "positive" : "negative"}`;
+  amt.textContent = formatMoney(tx.signed_amount);
+  const pill = document.createElement("div");
+  pill.className = `txn-status-pill ${tx.status}`;
+  pill.textContent = (STATUS_LABEL[tx.status] || (() => tx.status))();
+  right.appendChild(amt); right.appendChild(pill);
+  row.appendChild(main); row.appendChild(right);
+  return row;
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+(async function boot() {
+  const lang = (state.user && state.user.language) || "en";
+  await loadI18n(lang);
+
+  if (state.token && state.user) {
+    // Already logged in — skip landing, go straight to chat
+    el("landingPage").style.display = "none";
+    el("authOverlay").style.display = "none";
+    connectWebSocket();
+  } else {
+    // Show landing — auth overlay stays hidden until CTA tapped
+    el("authOverlay").style.display = "none";
+  }
+})();
+</script>
+</body>
+</html>

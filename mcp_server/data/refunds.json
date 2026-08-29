@@ -1,0 +1,4 @@
+{
+  "rfnd_3001": {"refund_id": "rfnd_3001", "user_id": "user_1", "payment_id": "pay_1002", "amount": 5000.0, "status": "processed", "date": "2026-08-21"},
+  "rfnd_3002": {"refund_id": "rfnd_3002", "user_id": "user_2", "payment_id": "pay_1004", "amount": 850.0, "status": "pending", "date": "2026-08-19"}
+}

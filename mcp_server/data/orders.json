@@ -1,0 +1,4 @@
+{
+  "ord_2001": {"order_id": "ord_2001", "user_id": "user_1", "status": "delivered", "total": 2500.0, "items": ["Cotton Fabric x10"], "date": "2026-08-20"},
+  "ord_2002": {"order_id": "ord_2002", "user_id": "user_2", "status": "processing", "total": 3200.0, "items": ["Steel Utensils x25"], "date": "2026-08-18"}
+}
