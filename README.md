@@ -398,3 +398,7 @@ Wallet screen), or ask the AI assistant directly: *"what's my balance?"*,
 ask for her account number + IFSC the first time, then offer to save her
 as a beneficiary after a successful transfer — after that, just her name
 is enough), or *"Mera current balance kitna hai?"* in Hindi.
+
+
+<img width="544" height="880" alt="image" src="https://github.com/user-attachments/assets/194e82d5-b20b-4027-8a58-f4bcaab5a18a" />
+
