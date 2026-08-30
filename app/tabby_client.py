@@ -1,34 +1,3 @@
-"""
-Tabby API client — standalone module, not wired into any route, agent
-tool, or UI flow yet. It implements exactly the 11 requests present in
-the provided Postman collection ("Tabby Pay in 4 collection"), matching
-their methods, URLs, headers, and request bodies as specified there:
-
-    Create a Session
-        POST   /api/v2/checkout                         (Bearer: public key)
-
-    Payments
-        GET    /api/v2/payments/{payment_id}             (Bearer: secret key)
-        PUT    /api/v2/payments/{payment_id}             (Bearer: secret key)
-        POST   /api/v2/payments/{payment_id}/captures    (Bearer: secret key)
-        POST   /api/v2/payments/{payment_id}/close       (Bearer: secret key)
-        POST   /api/v2/payments/{payment_id}/refunds     (Bearer: secret key)
-        GET    /api/v2/payments                          (Bearer: secret key)
-
-    Webhooks
-        POST   /api/v1/webhooks                          (X-Merchant-Code + Bearer: secret key)
-        GET    /api/v1/webhooks                           (X-Merchant-Code + Bearer: secret key)
-        GET    /api/v1/webhooks/{webhook_id}                (X-Merchant-Code + Bearer: secret key)
-        PUT    /api/v1/webhooks/{webhook_id}                (X-Merchant-Code + Bearer: secret key)
-        DELETE /api/v1/webhooks/{webhook_id}                (X-Merchant-Code + Bearer: secret key)
-
-Nothing else is invented beyond what the collection specifies — no
-signature-verification scheme, no receiver endpoint, no extra methods.
-Credentials are read from environment variables (see .env.example),
-never hardcoded, and this module never touches the database or any other
-part of the app on its own; a caller decides when and how to use it.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -40,7 +9,6 @@ from app.config import settings
 
 
 class TabbyAPIError(Exception):
-    """Raised for any non-2xx response from the Tabby API."""
 
     def __init__(self, status_code: int, message: str, response_body: Any = None):
         self.status_code = status_code
@@ -50,11 +18,6 @@ class TabbyAPIError(Exception):
 
 @dataclass
 class TabbyClient:
-    """
-    Thin, explicit wrapper — one method per collection request, no hidden
-    behavior. Credentials default to the environment variables above but
-    can be overridden per-instance (e.g. in tests).
-    """
 
     public_key: str = field(default_factory=lambda: settings.TABBY_PUBLIC_KEY)
     secret_key: str = field(default_factory=lambda: settings.TABBY_SECRET_KEY)
@@ -92,7 +55,6 @@ class TabbyClient:
 
         return body
 
-    # ==================== Create a Session ====================
 
     def create_checkout_session(self, payment: dict, lang: str = "en", merchant_urls: dict | None = None,
                                  merchant_code: str | None = None) -> dict:
@@ -113,7 +75,6 @@ class TabbyClient:
         }
         return self._request("POST", "/api/v2/checkout", bearer=self.public_key, json_body=body)
 
-    # ==================== Payments ====================
 
     def get_payment(self, payment_id: str) -> dict:
         """GET /api/v2/payments/{payment_id}"""
@@ -152,7 +113,6 @@ class TabbyClient:
             params["offset"] = offset
         return self._request("GET", "/api/v2/payments", bearer=self.secret_key, params=params)
 
-    # ==================== Webhooks ====================
 
     def register_webhook(self, url: str, is_test: bool = True, header: dict | None = None) -> dict:
         """POST /api/v1/webhooks — body: {"url", "is_test", "header": {"title","value"}}"""

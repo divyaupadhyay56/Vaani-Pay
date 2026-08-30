@@ -1,27 +1,3 @@
-"""
-Data layer for the MCP server — now backed by the SQLite database
-(app/db.py) instead of static JSON files.
-
-SECURITY-CRITICAL FILE. Every function that looks up a resource by ID
-enforces ownership: the SQL WHERE clause always filters on BOTH the
-resource id AND requesting_user_id together, so a row belonging to
-another user can never be returned even by accident. If the resource
-doesn't exist at all, or exists but belongs to someone else, the SAME
-generic access-denied response is returned in both cases. This is
-intentional: returning a different message for "not found" vs "belongs to
-someone else" would let an attacker enumerate valid IDs by observing which
-error they get back. One indistinguishable response for both closes that
-side channel.
-
-`requesting_user_id` must always be the caller's AUTHENTICATED identity
-(resolved from a verified session token in app/auth.py), never a value
-taken from user-typed text or LLM-extracted entities. This is enforced by
-the callers in mcp_server/tools/*.py and app/agent.py, not here — but this
-file is the last line of defense: it never trusts a resource's ownership
-without an explicit, parameterized SQL check (no string formatting of
-untrusted input goes anywhere near a query, which also rules out SQL
-injection).
-"""
 
 from __future__ import annotations
 

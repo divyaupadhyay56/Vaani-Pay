@@ -1,38 +1,11 @@
-"""
-AI Agent — Agentic Payment Orchestrator.
-
-Architecture
-────────────
-User message
-  → NLU (intent + entities, via Grok — no DB access)
-  → Agent Planner (this module)
-  → Skill Selection (app/skills.py)
-  → MCP Gateway (app/mcp_client.py → mcp_server/)
-  → Authorized Tools only (allowlist enforced here)
-  → Human-in-the-Loop confirmation for money-moving ops
-  → Execution
-  → Real-time timeline via WebSocket emit
-
-Security contracts enforced here
-─────────────────────────────────
-• user_id is ALWAYS session["user_id"] — set once at auth, never from NLU.
-• Only tools in the skill's ALLOWED_TOOLS set are callable.
-• No money moves in a single step; every financial skill goes through
-  preview → user-confirm → execute.
-• Simulation mode runs the full workflow but never calls execute tools.
-• No UPI PIN or payment secret ever enters this layer.
-"""
-
 import re
 from typing import Callable
-
 from app.config import settings
 from app.i18n import t, tpl
 from app.mcp_client import mcp_client
 from app.nlu import NLUResult
 from app import skills as skill_registry
 
-# Kept for backwards-compat imports
 ACCESS_DENIED_MESSAGE = "Access denied. You are not authorized to access this information."
 
 _AFFIRMATIVE = {"yes", "y", "yeah", "yep", "confirm", "confirmed", "ok", "okay",
@@ -41,15 +14,12 @@ _NEGATIVE    = {"no", "n", "nope", "cancel", "nahi", "nahin", "stop", "don't", "
 _AMOUNT_RE   = re.compile(r"[\d,]+(?:\.\d+)?")
 
 
-# ── Shared utilities (also used by skills.py) ─────────────────────────────────
-
 def _lang(session: dict) -> str:
     return session.get("language") or "en"
 
 
 def _money(amount: float) -> str:
     return f"₹{amount:,.2f}"
-
 
 def _parse_amount(text: str) -> float | None:
     match = _AMOUNT_RE.search((text or "").replace(",", ""))
@@ -78,14 +48,7 @@ def _wallet_error_reply(result: dict, lang: str) -> str:
     return f"{t('wallet_error_generic', lang)} ({result.get('message', code)})"
 
 
-# ── Secure MCP gateway ────────────────────────────────────────────────────────
-
 def _make_mcp_gateway(allowed_tools: set[str]) -> Callable:
-    """
-    Returns an async function that calls MCP tools — but ONLY tools in
-    `allowed_tools`. Any attempt to call a tool outside that set raises
-    PermissionError, preventing prompt-injection-based tool abuse.
-    """
     async def _gateway(tool_name: str, arguments: dict) -> dict:
         if tool_name not in allowed_tools:
             raise PermissionError(
@@ -95,23 +58,19 @@ def _make_mcp_gateway(allowed_tools: set[str]) -> Callable:
     return _gateway
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
-
 async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
     async def _emit(event_type: str, payload: dict):
         if emit is not None:
             await emit(event_type, payload)
 
-    user_id  = session["user_id"]   # authenticated identity, never from NLU
+    user_id  = session["user_id"] 
     lang     = _lang(session)
     sim_mode = session.get("simulation_mode", False)
     pending  = session.get("pending_action")
 
-    # ── Resume a pending multi-turn flow ──────────────────────────────────────
     if pending:
         return await _continue_pending(pending, nlu, session, user_id, lang, _emit, sim_mode)
 
-    # ── Simulation mode toggle ────────────────────────────────────────────────
     text_lower = nlu.english_translation.lower()
     if "simulation mode" in text_lower or "dry run" in text_lower or "dry-run" in text_lower:
         if "off" in text_lower or "disable" in text_lower or "exit" in text_lower:
@@ -124,7 +83,7 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
                 if lang == "en" else
                 "🧪 **सिमुलेशन मोड चालू।** मैं वास्तविक लेनदेन किए बिना वर्कफ़्लो प्लान करूंगा।")
 
-    # ── Low-confidence / fallback ─────────────────────────────────────────────
+ 
     if nlu.intent == "fallback_human_handoff" or nlu.confidence < settings.CONFIDENCE_THRESHOLD:
         return t("not_understood", lang)
 
@@ -150,7 +109,6 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
     if nlu.intent == "general_question":
         return t("general_question", lang)
 
-    # ── Route to Payment Skill ────────────────────────────────────────────────
     skill = skill_registry.select_skill(nlu.intent)
     if skill is None:
         return t("fallback_capabilities", lang)
@@ -169,7 +127,6 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
     return result.reply
 
 
-# ── Pending multi-turn state machine ─────────────────────────────────────────
 
 async def _continue_pending(
     pending: str, nlu: NLUResult, session: dict,
@@ -178,7 +135,7 @@ async def _continue_pending(
     text    = nlu.english_translation.strip()
     payload = session.get("pending_payload") or {}
 
-    # ────────────────── Add Money flows ──────────────────────────────────────
+    
     if pending == "skill:add_money:await_amount":
         amount = _parse_amount(text)
         if amount is None:
@@ -215,7 +172,7 @@ async def _continue_pending(
                    amount=_money(result["amount"]), balance=_money(result["balance"]),
                    transaction_id=result["transaction_id"])
 
-    # ────────────────── Send Money flows ─────────────────────────────────────
+    
     if pending == "skill:send_money:await_recipient":
         session["pending_action"]  = None
         session["pending_payload"] = {**payload, "recipient_name": text}
@@ -257,7 +214,7 @@ async def _continue_pending(
             return ("Please reply **yes** to confirm or **no** to cancel."
                     if lang == "en" else "पुष्टि के लिए **हाँ** या रद्द करने के लिए **नहीं** टाइप करें।")
 
-        # Execute the two-step transfer
+       
         from app import skills as sk
         gateway  = _make_mcp_gateway(sk.SendMoneySkill.ALLOWED_TOOLS)
         old_steps = [skill_registry.WorkflowStep(**{**s, "tool": s.get("tool")})
@@ -281,7 +238,7 @@ async def _continue_pending(
         if transfer.get("error"):
             return _wallet_error_reply(transfer, lang)
 
-        # Confirm
+        
         confirm_step = skill_registry.WorkflowStep("Execute transfer", "confirm_transfer",
                             {"requesting_user_id": user_id, "transaction_id": transfer["transaction_id"]})
         confirm_step.status = "running"
@@ -300,7 +257,7 @@ async def _continue_pending(
                    transaction_id=result["transaction_id"],
                    balance=_money(result["balance"]))
 
-    # ────────────────── Legacy ID-gathering flows ─────────────────────────────
+  
     if pending == "skill:payment_status:await_pid":
         intent = payload.get("intent", "check_payment_status")
         session["pending_action"]  = None

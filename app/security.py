@@ -1,14 +1,4 @@
-"""
-Password hashing and session-token generation.
 
-Deliberately stdlib-only (hashlib.pbkdf2_hmac + secrets) so the project
-doesn't pick up a new third-party dependency just for this. PBKDF2-HMAC-SHA256
-with a per-password random salt and a high iteration count is a
-well-established, safe choice for password storage.
-
-Passwords are NEVER stored or logged in plain text anywhere in this
-codebase — only the output of hash_password() is persisted (see app/db.py).
-"""
 
 from __future__ import annotations
 
@@ -61,16 +51,6 @@ def password_policy_error(password: str) -> str | None:
     return None
 
 
-# ---------------- Payment-authentication-secret guard ----------------
-#
-# UPI PINs, card PINs, net-banking passwords, and transaction passwords
-# must NEVER be accepted, stored, logged, or forwarded by Vaani Pay — that
-# authentication belongs entirely to the payment provider's own interface
-# (e.g. Razorpay Checkout's hosted UI). This applies to both Add Money and
-# Send Money. See app/wallet.py's add_money()/initiate_transfer()
-# docstrings and tests/test_no_payment_secrets.py for where this is
-# enforced and verified.
-
 FORBIDDEN_PAYMENT_SECRET_FIELD_PATTERNS = (
     "upi_pin", "upipin", "mpin", "m_pin", "atm_pin", "card_pin",
     "transaction_password", "txn_password", "net_banking_password", "netbanking_password",
@@ -78,13 +58,7 @@ FORBIDDEN_PAYMENT_SECRET_FIELD_PATTERNS = (
 
 
 def find_forbidden_payment_secret_fields(field_names) -> list[str]:
-    """
-    Given an iterable of field names (e.g. a dict's keys, or a Pydantic
-    model's declared fields), returns any that look like a payment
-    authentication secret. Used by tests to make sure no request model,
-    database column, or MCP tool parameter is ever named like one —
-    catching a future accidental addition, not just today's clean state.
-    """
+    
     hits = []
     for name in field_names:
         normalized = str(name).lower().replace("-", "_")
@@ -94,15 +68,7 @@ def find_forbidden_payment_secret_fields(field_names) -> list[str]:
 
 
 def redact_payment_secrets(data: dict) -> dict:
-    """
-    Defense-in-depth for logging: strips any key matching a forbidden
-    payment-secret pattern before a dict is ever written to a log line.
-    Nothing in this codebase currently logs a raw request payload for
-    wallet operations (see app/wallet.py, app/main.py) — this exists so
-    that if logging is ever added later (e.g. around a real payment
-    gateway's webhook payload), redaction is one call away rather than
-    something that has to be remembered from scratch.
-    """
+    
     return {
         k: ("[REDACTED]" if any(p in str(k).lower().replace("-", "_") for p in FORBIDDEN_PAYMENT_SECRET_FIELD_PATTERNS) else v)
         for k, v in data.items()

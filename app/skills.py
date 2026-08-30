@@ -1,27 +1,3 @@
-"""
-Payment Skills System — modular, agentic payment orchestration.
-
-Each Skill is a self-contained unit that:
-  • Defines which intents it handles (can_handle).
-  • Knows which MCP tools it is allowed to invoke.
-  • Manages its own multi-step state machine for human-in-the-loop flows.
-  • Returns structured WorkflowStep lists for the planner to render in
-    the Agent Timeline before execution.
-  • Never moves money in a single step — every money-moving skill runs
-    plan → preview → user-confirm → execute.
-
-Adding a new skill: create a subclass of BaseSkill, implement can_handle()
-and execute(), register it in SKILL_REGISTRY at the bottom of this file.
-Nothing else changes.
-
-Security contract
-─────────────────
-• Every skill receives user_id from the AUTHENTICATED session — never from
-  NLU entities or anything the user typed.
-• Skills only call the tools in their declared ALLOWED_TOOLS set. The
-  agent planner enforces this before execution.
-• No skill ever accepts, stores, or logs a UPI PIN or payment secret.
-"""
 
 from __future__ import annotations
 
@@ -30,31 +6,24 @@ from typing import Any
 
 from app import fraud as fraud_engine
 
-
-# ── Data structures ───────────────────────────────────────────────────────────
-
 @dataclass
 class WorkflowStep:
-    """One step in the agent's planned workflow, shown to the user in the timeline."""
-    label:       str              # user-facing step name
-    tool:        str | None       # MCP tool to call (None = UI/confirmation step)
-    params:      dict             # tool parameters (never includes secrets)
-    status:      str = "pending"  # pending | running | done | skipped | failed
+    label:       str              
+    tool:        str | None       
+    params:      dict             
+    status:      str = "pending"  
     result:      Any  = None
 
 
 @dataclass
 class SkillResult:
-    """Final result returned by a skill after execution."""
     success:     bool
-    reply:       str              # localised user-facing message
+    reply:       str              
     data:        dict = field(default_factory=dict)
     timeline:    list[WorkflowStep] = field(default_factory=list)
     risk:        dict | None = None
-    preview:     dict | None = None   # action preview for human confirmation
+    preview:     dict | None = None   
 
-
-# ── Base class ────────────────────────────────────────────────────────────────
 
 class BaseSkill:
     NAME:          str       = "base"
@@ -70,14 +39,12 @@ class BaseSkill:
         session:   dict,
         user_id:   str,
         lang:      str,
-        mcp_call,          # async callable: (tool_name, args) -> dict
-        emit,              # async callable: (event_type, payload) -> None
+        mcp_call,          
+        emit,              
         sim_mode:  bool,
     ) -> SkillResult:
         raise NotImplementedError
 
-
-# ── Check Balance Skill ───────────────────────────────────────────────────────
 
 class CheckBalanceSkill(BaseSkill):
     NAME          = "check_balance"
@@ -109,8 +76,6 @@ class CheckBalanceSkill(BaseSkill):
         )
         return SkillResult(success=True, reply=reply, data=result, timeline=steps)
 
-
-# ── Add Money Skill ───────────────────────────────────────────────────────────
 
 class AddMoneySkill(BaseSkill):
     NAME          = "add_money"
@@ -157,7 +122,6 @@ class AddMoneySkill(BaseSkill):
                 preview=preview,
             )
 
-        # Store and ask for confirmation
         session["pending_action"]  = "skill:add_money:await_confirm"
         session["pending_payload"] = {"amount": amount, "steps": _serialize_steps(steps)}
         await emit("preview", preview)
@@ -170,7 +134,6 @@ class AddMoneySkill(BaseSkill):
         return SkillResult(success=True, reply=prompt, timeline=steps, preview=preview)
 
 
-# ── Send Money Skill ──────────────────────────────────────────────────────────
 
 class SendMoneySkill(BaseSkill):
     NAME          = "send_money"
@@ -190,7 +153,6 @@ class SendMoneySkill(BaseSkill):
 
         payload = session.get("pending_payload") or {}
 
-        # Step 1: gather missing fields
         if not recipient_name:
             session["pending_action"]  = "skill:send_money:await_recipient"
             session["pending_payload"] = payload
@@ -206,7 +168,7 @@ class SendMoneySkill(BaseSkill):
                  else f"आप {recipient_name} को कितना भेजना चाहते हैं?")
             return SkillResult(success=True, reply=q, timeline=[])
 
-        # Step 2: build workflow steps
+       
         steps = [
             WorkflowStep("Validate recipient",   "validate_recipient", {
                 "requesting_user_id": user_id,
@@ -231,7 +193,6 @@ class SendMoneySkill(BaseSkill):
 
         await emit("timeline", {"steps": _serialize_steps(steps)})
 
-        # Step 3: validate recipient via MCP
         steps[0].status = "running"
         await emit("timeline", {"steps": _serialize_steps(steps)})
         resolution = await mcp_call("validate_recipient", steps[0].params)
@@ -258,14 +219,14 @@ class SendMoneySkill(BaseSkill):
         resolved_ifsc    = resolution["ifsc"]
         resolved_name    = resolution["recipient_name"]
 
-        # Step 4: fraud check (NOT the LLM — the risk engine)
+        
         steps[1].status = "running"
         await emit("timeline", {"steps": _serialize_steps(steps)})
         risk = fraud_engine.analyse(user_id, amount, resolved_account, resolved_ifsc)
         steps[1].status = "done"
         steps[1].result = risk
 
-        # Step 5: preview
+     
         steps[2].status = "running"
         preview = {
             "action":     "Send Money",
@@ -304,7 +265,7 @@ class SendMoneySkill(BaseSkill):
                 timeline=steps, risk=risk, preview=preview,
             )
 
-        # Step 6: await user confirmation
+      
         steps[3].status = "running"
         session["pending_action"]  = "skill:send_money:await_confirm"
         session["pending_payload"] = {
@@ -335,7 +296,6 @@ class SendMoneySkill(BaseSkill):
         return SkillResult(success=True, reply=confirm_msg, timeline=steps, risk=risk, preview=preview)
 
 
-# ── Transaction History / Memory Skill ───────────────────────────────────────
 
 class TransactionMemorySkill(BaseSkill):
     NAME          = "transaction_memory"
@@ -364,7 +324,6 @@ class TransactionMemorySkill(BaseSkill):
             )
             return SkillResult(success=True, reply=reply, data=result, timeline=steps)
 
-        # view_wallet_transactions / payment_statistics
         steps = [WorkflowStep("Fetch transactions", "get_transactions",
                               {"requesting_user_id": user_id, "filter": "all"})]
         await emit("timeline", {"steps": _serialize_steps(steps)})
@@ -394,7 +353,6 @@ class TransactionMemorySkill(BaseSkill):
         return SkillResult(success=True, reply=reply, data=result, timeline=steps)
 
 
-# ── Payment Status / Legacy MCP Skill ────────────────────────────────────────
 
 class PaymentStatusSkill(BaseSkill):
     NAME          = "payment_status"
@@ -525,7 +483,6 @@ class PaymentStatusSkill(BaseSkill):
         return SkillResult(success=False, reply="Intent not handled by this skill.", timeline=[])
 
 
-# ── Registry and helpers ──────────────────────────────────────────────────────
 
 SKILL_REGISTRY: list[BaseSkill] = [
     CheckBalanceSkill(),

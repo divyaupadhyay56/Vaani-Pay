@@ -1,36 +1,4 @@
-"""
-SQLite database layer.
 
-This replaces the static/hardcoded user data and mock-JSON-only setup with a
-real, file-backed, multi-user database. It is intentionally plain
-sqlite3 + hand-written SQL (no ORM) to keep the dependency footprint at
-zero — everything here is Python stdlib.
-
-Tables (see README/schema docs for the full rationale):
-    users          — account records, hashed passwords, preferences
-    sessions       — active auth tokens ("session/session information")
-    chat_history   — persisted conversation turns per user
-    payments / orders / refunds / transactions
-                   — the same resources that used to live in
-                     mcp_server/data/*.json, now DB-backed. Kept as
-                     separate tables (rather than one big table) per the
-                     project's data-isolation and schema-design requirements.
-
-SECURITY NOTE: every query in this module that returns a specific
-resource (payment/order/refund) is only ever called with a
-`requesting_user_id` filter by mcp_server/data_layer.py — this file does
-not itself decide who is allowed to see what, but every helper that reads
-a single resource requires the caller to pass the owning user id as part
-of the WHERE clause, so there is no code path that returns a row without
-an ownership condition attached.
-
-On another machine: set DB_PATH in .env (see .env.example), then either
-run `python3 -m app.db` once or just start the app — init_db() runs
-automatically at FastAPI startup and creates the schema if it doesn't
-exist yet. Seed data (mcp_server/data/*.json) is only loaded into an
-EMPTY database and is meant for local development/demo purposes only —
-see the "Database Migration" section of the README.
-"""
 
 from __future__ import annotations
 
@@ -210,9 +178,6 @@ def tx() -> Iterator[sqlite3.Connection]:
 
 
 def init_db(seed_if_empty: bool = True) -> None:
-    """Create the schema if missing, and (only for local dev/demo) seed it
-    from the legacy mock JSON files in mcp_server/data/ if the users table
-    is currently empty. Never overwrites existing data."""
     conn = get_connection()
     conn.executescript(SCHEMA)
     conn.commit()
@@ -224,11 +189,8 @@ def init_db(seed_if_empty: bool = True) -> None:
 
 
 def _seed_from_legacy_json(conn: sqlite3.Connection) -> None:
-    """Development/demo-only convenience seed. Passwords for the two demo
-    accounts are set to a fixed, clearly-labeled demo password so the
-    hackathon judges/reviewers can log in without needing the old raw
-    tokens. This never runs against a non-empty database."""
-    from app.security import hash_password  # local import to avoid a cycle at module load
+    
+    from app.security import hash_password 
 
     users_path = _SEED_DATA_DIR / "users.json"
     if not users_path.exists():
@@ -281,11 +243,7 @@ def _seed_from_legacy_json(conn: sqlite3.Connection) -> None:
                 (t["txn_id"], uid, t["type"], t["amount"], t["status"], t.get("date")),
             )
 
-    # Wallet accounts for the demo users, with a starting balance and a
-    # couple of demo wallet transactions so "Add Money" / "Send Money" /
-    # transaction history have something to show right away.
-    from app import wallet  # local import to avoid a cycle at module load
-
+    from app import wallet  
     accounts = {}
     for uid in legacy_users.keys():
         accounts[uid] = wallet.insert_account_row(conn, uid)

@@ -1,9 +1,4 @@
-"""
-NLU layer — intent detection and entity extraction via Grok API.
 
-Security: never extracts user_id, account_id, or payment secrets.
-Extended with simulation_mode intent for the agentic platform.
-"""
 
 import json
 import re

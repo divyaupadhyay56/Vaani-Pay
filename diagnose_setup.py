@@ -1,11 +1,3 @@
-"""
-Standalone diagnostic — checks every moving part of the current stack
-(Grok API + MCP server) independently of the FastAPI app, so you can
-isolate exactly what's broken instead of guessing from a browser error.
-
-Usage (from inside the vaani-pay folder, with your venv activated):
-    python3 diagnose_setup.py
-"""
 
 import asyncio
 import os

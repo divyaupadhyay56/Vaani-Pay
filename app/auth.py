@@ -1,26 +1,5 @@
-"""
-Authentication & account management — now backed by the SQLite database
-(app/db.py) instead of a static token list.
-
-This module is the ONLY place that ever turns a client-supplied credential
-(password, or a session token) into a trusted user identity. Everything
-downstream (WebSocket chat, REST endpoints) uses the `user_id` this module
-hands back — never a value taken from request bodies, URL parameters, or
-chat text. That's what keeps user data isolated: see mcp_server/data_layer.py
-for how every resource lookup re-checks ownership against this identity.
-
-Flow:
-    register()        -> creates a user row (password hashed, never stored raw)
-    login()            -> verifies credentials, issues a new session token
-    verify_token()     -> resolves a session token to a user identity (rejects
-                          expired/unknown tokens)
-    logout()           -> deletes a session token (server-side revocation)
-    logout_all()       -> deletes every session token for a user (used by
-                          "change password" and "delete account")
-"""
 
 from __future__ import annotations
-
 import os
 import re
 import uuid
@@ -35,8 +14,6 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class AuthError(Exception):
-    """Raised for any user-facing auth/validation failure. `message` is safe to show the user."""
-
     def __init__(self, message: str, status_code: int = 400):
         super().__init__(message)
         self.message = message
@@ -59,7 +36,6 @@ def _row_to_identity(row) -> UserIdentity:
     return UserIdentity(user_id=row["id"], name=row["name"], email=row["email"], language=row["language"])
 
 
-# ---------------- Registration ----------------
 
 def register(name: str, email: str, password: str, phone: str | None = None, language: str = "en") -> UserIdentity:
     name = (name or "").strip()
@@ -78,7 +54,7 @@ def register(name: str, email: str, password: str, phone: str | None = None, lan
     conn = db.get_connection()
     existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
     if existing is not None:
-        # Generic message on purpose — don't reveal which emails are registered.
+  
         raise AuthError("Could not create account with the details provided.")
 
     user_id = f"user_{uuid.uuid4().hex[:12]}"
@@ -89,15 +65,13 @@ def register(name: str, email: str, password: str, phone: str | None = None, lan
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, email, phone, hash_password(password), language, now, now),
         )
-        # Every user gets a payment account, created atomically with the user
-        # row itself — a user can never exist without one (see app/wallet.py).
-        from app import wallet  # local import: avoids a module-load cycle (wallet.py doesn't import auth)
+        
+        from app import wallet  
         wallet.insert_account_row(conn, user_id)
 
     return UserIdentity(user_id=user_id, name=name, email=email, language=language)
 
 
-# ---------------- Login / logout ----------------
 
 def login(email: str, password: str) -> tuple[UserIdentity, str]:
     """Returns (identity, session_token). Raises AuthError on bad credentials."""
@@ -105,8 +79,6 @@ def login(email: str, password: str) -> tuple[UserIdentity, str]:
     conn = db.get_connection()
     row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
-    # Same generic error whether the email doesn't exist or the password is
-    # wrong — this avoids leaking which emails have accounts.
     if row is None or not verify_password(password or "", row["password_hash"]):
         raise AuthError("Invalid email or password.", status_code=401)
 
@@ -124,9 +96,6 @@ def login(email: str, password: str) -> tuple[UserIdentity, str]:
 
 
 def verify_token(token: str) -> UserIdentity | None:
-    """Resolves a session token to a verified user identity, or None if the
-    token is missing, unknown, or expired. This is the single choke point
-    every authenticated request (WebSocket and REST) goes through."""
     if not token or not isinstance(token, str):
         return None
     token = token.strip()
@@ -161,8 +130,6 @@ def logout_all(user_id: str) -> None:
     with db.tx() as conn:
         conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
 
-
-# ---------------- Profile management ----------------
 
 def get_profile(user_id: str) -> dict:
     conn = db.get_connection()
@@ -224,14 +191,10 @@ def change_password(user_id: str, current_password: str, new_password: str) -> N
             "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
             (hash_password(new_password), _now(), user_id),
         )
-    # Invalidate all existing sessions so a stolen/old token can't keep working.
     logout_all(user_id)
 
 
 def delete_account(user_id: str, password: str) -> None:
-    """Permanently deletes the user's account and all associated data.
-    Requires re-authentication with the current password as a confirmation
-    step, per the account-deletion requirement."""
     conn = db.get_connection()
     row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
@@ -240,6 +203,4 @@ def delete_account(user_id: str, password: str) -> None:
         raise AuthError("Password is incorrect.", status_code=401)
 
     with db.tx() as conn:
-        # ON DELETE CASCADE handles sessions/chat_history/payments/orders/
-        # refunds/transactions rows for this user.
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))

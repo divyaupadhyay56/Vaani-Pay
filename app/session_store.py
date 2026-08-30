@@ -1,16 +1,3 @@
-"""
-Per-connection conversation + authentication state, keyed by a session id
-(the WebSocket connection id in this app).
-
-Defaults to a simple in-memory dict, which is fine for a single-process
-deployment. Set USE_REDIS=true in .env to persist across restarts / workers.
-
-SECURITY NOTE: `user_id` here is set exactly once, at authentication time
-(app/auth.py, via app/main.py's WebSocket auth step), and is the ONLY
-identity ever passed into MCP tool calls as requesting_user_id. Nothing in
-this file, and nothing later in the pipeline, ever overwrites user_id from
-a chat message or LLM-extracted value.
-"""
 
 import json
 from typing import Any
@@ -50,12 +37,12 @@ def clear_session(session_id: str) -> None:
 def _default_session() -> dict[str, Any]:
     return {
         "authenticated": False,
-        "user_id": None,       # set only via a verified token — see app/auth.py
+        "user_id": None,      
         "user_name": None,
-        "language": "en",        # the authenticated user's persisted language preference (app/db.py)
-        "pending_action": None,  # e.g. "awaiting_payment_id" — for "please enter your payment ID" follow-ups
+        "language": "en",        
+        "pending_action": None, 
         "pending_payload": {},
-        "history": [],           # list of {"role": ..., "text": ...}
+        "history": [],          
     }
 
 

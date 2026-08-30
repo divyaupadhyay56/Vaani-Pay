@@ -1,18 +1,4 @@
-"""
-Tests proving the UPI PIN / payment-authentication-secret policy is
-actually enforced, not just documented — for both Add Money and Send
-Money.
 
-Three layers are tested:
-1. REST-level: a request smuggling a PIN-like field is rejected with 422
-   (Pydantic's extra="forbid"), never silently accepted or ignored.
-2. Static/regression: no Pydantic request model, database column, or MCP
-   tool parameter anywhere in the app is named like a payment secret —
-   this guards against someone accidentally adding a real PIN field in
-   the future, which extra="forbid" alone would not catch (it only blocks
-   UNDECLARED fields, not deliberately-added ones).
-3. Unit: the redaction helper actually strips secret-like keys.
-"""
 
 import asyncio
 import importlib
@@ -49,14 +35,11 @@ def register_and_login(client, email="pintest@example.com"):
     token = res.json()["token"]
     return {"Authorization": f"Bearer {token}"}
 
-
-# ==================== Layer 1: REST-level rejection ====================
-
 def test_add_money_rejects_request_with_upi_pin_field(client):
     headers = register_and_login(client)
     res = client.post("/wallet/add-money", json={"amount": 500, "upi_pin": "1234"}, headers=headers)
     assert res.status_code == 422
-    # Confirm the rejection happened before any wallet logic ran: balance must still be 0.
+   
     account = client.get("/wallet/account", headers=headers).json()
     assert account["balance"] == 0
 
@@ -68,14 +51,13 @@ def test_add_money_rejects_mpin_field_too(client):
 
 
 def test_add_money_works_normally_without_forbidden_fields(client):
-    """Sanity check: the guard doesn't break the legitimate happy path."""
     headers = register_and_login(client)
     res = client.post("/wallet/add-money", json={"amount": 500}, headers=headers)
     assert res.status_code == 200
 
 
 def test_wallet_history_includes_signed_amount_for_ui(client):
-    """History rows must expose the signed amount that the browser renders."""
+    
     headers = register_and_login(client, email="historyui@example.com")
     res = client.post("/wallet/add-money", json={"amount": 500}, headers=headers)
     assert res.status_code == 200
@@ -87,7 +69,6 @@ def test_wallet_history_includes_signed_amount_for_ui(client):
 
 
 def test_saved_recipients_reply_lists_beneficiaries(client):
-    """The agent should answer saved-recipient queries instead of falling back to a generic message."""
     from app import wallet
     from app.agent import handle_message
     from app.nlu import NLUResult
@@ -101,7 +82,6 @@ def test_saved_recipients_reply_lists_beneficiaries(client):
 
     async def run_check():
         session = {"user_id": "user_1", "language": "en", "simulation_mode": False}
-        # use a stable user_id that matches the auth-created user
         user = client.get("/users/me", headers=headers).json()
         session["user_id"] = user["id"]
         response = await handle_message(
@@ -198,8 +178,6 @@ def test_save_beneficiary_rejects_pin_field(client):
     assert res.status_code == 422
 
 
-# ==================== Layer 2: static regression guards ====================
-
 def test_no_wallet_request_model_declares_a_payment_secret_field():
     """Even if extra='forbid' were removed later, no model should ever DECLARE a PIN-like field."""
     from app import security, main
@@ -234,8 +212,6 @@ def test_no_database_column_is_named_like_a_payment_secret():
     with open(schema_path) as f:
         schema_sql = f.read()
 
-    # Extract plausible column-name tokens from every CREATE TABLE block —
-    # good enough for a regression guard without a full SQL parser.
     column_names = re.findall(r"^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:TEXT|REAL|INTEGER|BLOB)\b", schema_sql, re.MULTILINE)
     hits = security.find_forbidden_payment_secret_fields(column_names)
     assert hits == [], f"Database schema declares forbidden column(s): {hits}"
@@ -250,7 +226,6 @@ def test_no_mcp_wallet_tool_parameter_is_named_like_a_payment_secret():
     with open(tools_path) as f:
         source = f.read()
 
-    # Pull every parameter name out of the tool function signatures.
     param_names = re.findall(r"def \w+\(([^)]*)\)", source)
     all_params = []
     for sig in param_names:
@@ -266,7 +241,7 @@ def test_no_mcp_wallet_tool_parameter_is_named_like_a_payment_secret():
 
 
 def test_forbidden_field_matcher_catches_expected_variants():
-    """Sanity check on the matcher itself, so the regression tests above are trustworthy."""
+    
     from app import security
 
     hits = security.find_forbidden_payment_secret_fields([
@@ -281,8 +256,6 @@ def test_forbidden_field_matcher_catches_expected_variants():
     assert "card_pin" in hits
     assert "transaction_password" in hits
 
-
-# ==================== Layer 3: redaction helper ====================
 
 def test_redact_payment_secrets_strips_matching_keys():
     from app import security

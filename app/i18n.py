@@ -1,21 +1,3 @@
-"""
-Bilingual (English + Hindi) translation support.
-
-Two things live here:
-1. UI_STRINGS — UI copy (buttons, labels, errors) served to the frontend
-   via GET /i18n/{lang}, so the frontend never hardcodes translated
-   strings — it fetches a dictionary and looks keys up.
-2. Response templates used by app/agent.py to render the AI assistant's
-   replies in the user's selected language. Keeping templates here (data)
-   rather than scattering `if lang == "hi"` string literals through
-   agent.py keeps the two languages easy to review side-by-side and easy
-   to extend to a third language later.
-
-The selected language is a per-user DB column (users.language — see
-app/db.py / app/auth.py) so it persists across logout/login, and can be
-changed at any time via PUT /users/me/preferences without restarting
-anything.
-"""
 
 from __future__ import annotations
 
@@ -26,8 +8,6 @@ DEFAULT_LANGUAGE = "en"
 def normalize_lang(lang: str | None) -> str:
     return lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
 
-
-# ---------------- UI strings ----------------
 
 UI_STRINGS: dict[str, dict[str, str]] = {
     "en": {
@@ -86,7 +66,7 @@ UI_STRINGS: dict[str, dict[str, str]] = {
         "what_would_you_like": "What would you like to know?",
         "add_money_confirm_prompt":      "💳 Add {amount} to your wallet?\n\nReply yes to confirm or no to cancel.",
 
-        # --- Wallet / payments ---
+        # --- Wallet---
         "wallet": "Wallet",
         "my_account": "My Account",
         "available_balance": "Available Balance",
@@ -283,8 +263,6 @@ def ui_strings(lang: str) -> dict[str, str]:
     return UI_STRINGS[normalize_lang(lang)]
 
 
-# ---------------- Agent response templates ----------------
-
 AGENT_STRINGS: dict[str, dict[str, str]] = {
     "en": {
         "greeting": "Hello! I can help you check payment status, refunds, orders, transactions, and more. What would you like to do?",
@@ -352,10 +330,6 @@ def t(key: str, lang: str) -> str:
     return AGENT_STRINGS[lang].get(key, AGENT_STRINGS[DEFAULT_LANGUAGE].get(key, key))
 
 
-# ---------------- Dynamic reply templates (interpolated by app/agent.py) ----------------
-# Keep placeholders identical across languages — agent.py fills in already-
-# formatted values (e.g. "₹2,500.00") so no per-language number formatting
-# logic is needed here.
 
 REPLY_TEMPLATES: dict[str, dict[str, str]] = {
     "en": {

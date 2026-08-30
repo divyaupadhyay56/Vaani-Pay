@@ -1,12 +1,3 @@
-"""
-WebSocket Manager — the browser<->backend real-time channel.
-
-Tracks active connections by server-generated session id and provides a
-small helper to stream typed JSON events to the browser:
-{"type": "auth_success"/"auth_error", ...}, {"type": "status", ...},
-{"type": "tool_start"/"tool_result", ...}, {"type": "message", ...},
-{"type": "error", ...} — this is what drives the live status stream in the UI.
-"""
 
 from fastapi import WebSocket
 

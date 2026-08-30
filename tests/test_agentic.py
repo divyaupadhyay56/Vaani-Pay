@@ -1,18 +1,12 @@
-"""
-Tests for the agentic layer — skills, fraud engine, MCP gateway allowlist,
-simulation mode, and security contracts.
-Run: pytest tests/test_agentic.py -v
-"""
+
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pytest
 import asyncio
 
-# ── Fraud engine (pure logic, no DB needed) ───────────────────────────────────
 
 def test_fraud_low_for_zero_history_small_amount(tmp_path, monkeypatch):
-    """Small amount with no history → LOW risk."""
     import sqlite3
     from pathlib import Path
     db_file = tmp_path / "test.db"
@@ -36,7 +30,6 @@ def test_fraud_low_for_zero_history_small_amount(tmp_path, monkeypatch):
 
 
 def test_fraud_high_for_large_velocity(tmp_path, monkeypatch):
-    """Very large amount + high velocity → HIGH risk."""
     import sqlite3
     from app import db as appdb
     db_file = tmp_path / "test2.db"
@@ -51,7 +44,6 @@ def test_fraud_high_for_large_velocity(tmp_path, monkeypatch):
     conn.execute("INSERT INTO payment_accounts (user_id,payment_id,account_number,ifsc,balance,currency,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
                  ("u2","PAY2","111111111111","VPAY0000001",200000,"INR","active",now))
     acc_id = conn.execute("SELECT id FROM payment_accounts WHERE user_id='u2'").fetchone()["id"]
-    # 4 rapid recent transfers
     from datetime import datetime, timedelta, timezone
     for i in range(4):
         ts = (datetime.now(timezone.utc) - timedelta(minutes=i*5)).isoformat()
@@ -66,8 +58,6 @@ def test_fraud_high_for_large_velocity(tmp_path, monkeypatch):
     assert result["risk_level"] in ("MEDIUM", "HIGH")
     assert result["risk_score"] >= 0.35
 
-
-# ── Skill registry ────────────────────────────────────────────────────────────
 
 def test_skill_registry_covers_all_key_intents():
     from app.skills import select_skill
@@ -93,11 +83,8 @@ def test_send_money_allowed_tools():
     s = SendMoneySkill()
     assert "create_transfer" in s.ALLOWED_TOOLS
     assert "confirm_transfer" in s.ALLOWED_TOOLS
-    # Must NOT have add_money
     assert "add_money" not in s.ALLOWED_TOOLS
 
-
-# ── MCP gateway allowlist ─────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_mcp_gateway_blocks_unlisted_tool():
@@ -117,7 +104,6 @@ async def test_mcp_gateway_allows_listed_tool(monkeypatch):
         calls.append((name, args))
         return {"balance": 1000.0}
 
-    # Monkeypatch mcp_client.call_tool
     import app.mcp_client as mc
     monkeypatch.setattr(mc.mcp_client, "call_tool", fake_mcp_call)
 
@@ -126,8 +112,6 @@ async def test_mcp_gateway_allows_listed_tool(monkeypatch):
     assert result["balance"] == 1000.0
     assert calls[0][0] == "get_balance"
 
-
-# ── Simulation mode ───────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_simulation_mode_does_not_call_execute_tools(monkeypatch):
@@ -158,8 +142,6 @@ async def test_simulation_mode_does_not_call_execute_tools(monkeypatch):
     assert "SIMULATION" in result.reply.upper()
     assert "add_money" not in called_tools
 
-
-# ── Security: no PIN in entities ─────────────────────────────────────────────
 
 def test_nlu_result_has_no_pin_field():
     from app.nlu import NLUResult

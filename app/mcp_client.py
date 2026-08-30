@@ -1,21 +1,4 @@
-"""
-MCP client — the AI Agent's connection to the MCP Server.
 
-Per the architecture: WebSocket is the browser<->backend channel; MCP is
-the agent<->tools channel. This module owns that second connection.
-
-We use the standard stdio transport (spawns mcp_server/server.py as a
-subprocess and talks MCP over its stdin/stdout) rather than inventing a
-custom transport — the MCP spec's supported transports are stdio and
-Streamable HTTP; stdio is the simplest correct choice when the MCP server
-and the agent run on the same machine, which is true for this hackathon
-deployment. Swapping to Streamable HTTP later (e.g. if the MCP server
-moves to its own container) only changes this file.
-
-One client session is opened lazily and kept alive for the process
-lifetime of the FastAPI app, rather than spawning a fresh subprocess per
-request — that would add real latency to every single chat turn.
-"""
 
 import asyncio
 import json

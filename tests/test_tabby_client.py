@@ -1,13 +1,3 @@
-"""
-Tests for app/tabby_client.py.
-
-No live network access to api.tabby.ai is used or needed — httpx's
-MockTransport intercepts every request and lets us assert exactly what
-URL, method, headers, and body the client constructed, which is what
-actually matters for correctness (we can't get a real approval/decline
-decision from Tabby's sandbox without real merchant credentials, but we
-CAN verify the client sends exactly what the collection specifies).
-"""
 
 import json
 
@@ -31,8 +21,6 @@ def make_client(handler):
 def json_response(status_code: int, body: dict):
     return httpx.Response(status_code, json=body)
 
-
-# ==================== Create a Session ====================
 
 def test_create_checkout_session_uses_public_key_and_correct_shape():
     captured = {}
@@ -70,7 +58,6 @@ def test_create_checkout_session_merchant_code_override():
     assert captured["body"]["merchant_code"] == "other_code"
 
 
-# ==================== Payments ====================
 
 def test_get_payment_uses_secret_key():
     captured = {}
@@ -181,7 +168,6 @@ def test_list_payments_no_params_when_omitted():
     assert captured["params"] == {}
 
 
-# ==================== Webhooks ====================
 
 def test_register_webhook_sends_merchant_code_header_and_body():
     captured = {}
@@ -279,7 +265,6 @@ def test_delete_webhook():
     assert captured["merchant_code_header"] == MERCHANT_CODE
 
 
-# ==================== Error handling ====================
 
 def test_error_response_raises_tabby_api_error_with_details():
     def handler(request: httpx.Request):

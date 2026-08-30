@@ -1,14 +1,3 @@
-"""
-Offline integration test — mocks only the NLU/LLM layer (so it runs without
-a Grok API key) and exercises everything else for real: the actual
-database (app/db.py, seeded from the legacy mock JSON on first run), the
-real MCP server (spawned as a real subprocess) reading from that database,
-the async agent (including its bilingual English/Hindi replies and the
-wallet/money-transfer flows), and — most importantly — the cross-user
-access control and transfer-confirmation state machine.
-
-Run with: python3 test_offline.py
-"""
 
 import asyncio
 import re
@@ -18,8 +7,7 @@ from app.nlu import NLUResult
 from app.agent import handle_message, ACCESS_DENIED_MESSAGE
 from app.mcp_client import mcp_client
 
-db.init_db()  # creates the schema / seeds demo data (user_1, user_2, ...) if empty
-
+db.init_db() 
 _AMOUNT_RE = re.compile(r"₹?([\d,]+(?:\.\d+)?)")
 
 

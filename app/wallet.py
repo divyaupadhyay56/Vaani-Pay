@@ -1,42 +1,3 @@
-"""
-Wallet — the real money-movement system: payment account creation, balance,
-Add Money, Send Money (two-step: initiate + confirm), and saved
-beneficiaries.
-
-This is the SINGLE SOURCE OF TRUTH for all wallet business logic. Both the
-REST endpoints (app/main.py) and the AI/MCP tools
-(mcp_server/data_layer.py → mcp_server/tools/wallet_tools.py) call into
-this module — there is no separate code path that could let one of them
-enforce weaker rules than the other.
-
-SECURITY-CRITICAL DESIGN:
-- Every function here takes `user_id` — the caller's AUTHENTICATED identity
-  — and uses it to look up that user's OWN payment_accounts row. There is
-  no function that accepts an arbitrary account id/payment id and trusts
-  it as "the caller's account". This is what makes it impossible for a
-  request to modify someone else's balance: the row being updated is
-  always found via `WHERE user_id = ?`, never via a client-supplied
-  account identifier.
-- The balance is NEVER set directly by any public function. It only ever
-  changes as a side effect of add_money()/confirm_transfer(), both of
-  which append an immutable wallet_transactions row in the same atomic
-  operation. There is intentionally no `set_balance()`.
-- Transfers are two-step (initiate_transfer -> confirm_transfer) so the UI
-  and the AI assistant can both show a confirmation screen before money
-  actually moves — the PENDING row created by initiate_transfer does not
-  touch anyone's balance; only confirm_transfer does, and it re-validates
-  the sender's balance and the recipient at confirm time (not just at
-  initiate time), so a balance that changed in between (e.g. two transfers
-  initiated back to back) can't result in an overdraft.
-- Atomicity: confirm_transfer runs the balance check + both balance
-  updates + the transaction status update inside one SQLite transaction
-  (see app/db.py's `tx()`), guarded additionally by a process-wide lock
-  (`_WALLET_LOCK`) so two concurrent transfers from the same sender can't
-  interleave and both pass the balance check before either commits. If
-  anything fails partway through, the whole transaction rolls back — a
-  transfer can never end up debited-but-not-credited (or vice versa).
-"""
-
 from __future__ import annotations
 
 import random
@@ -52,16 +13,15 @@ from app import db
 
 _WALLET_LOCK = threading.Lock()
 
-# ---------------- Config / limits ----------------
 
-FIXED_IFSC = "VPAY0000001"  # single virtual branch — this is a wallet, not a multi-branch bank
+FIXED_IFSC = "VPAY0000001"  
 CURRENCY = "INR"
 
 MIN_ADD_MONEY = Decimal("1.00")
-MAX_ADD_MONEY = Decimal("200000.00")   # ₹2,00,000 per transaction — demo limit
+MAX_ADD_MONEY = Decimal("200000.00")   
 MIN_TRANSFER = Decimal("1.00")
 MAX_TRANSFER = Decimal("200000.00")
-TRANSACTION_FEE = Decimal("0.00")      # no fees in the demo flow
+TRANSACTION_FEE = Decimal("0.00")      
 
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 ACCOUNT_NUMBER_RE = re.compile(r"^\d{9,18}$")
@@ -73,7 +33,7 @@ class WalletError(Exception):
     def __init__(self, message: str, code: str = "validation_error", status_code: int = 400):
         super().__init__(message)
         self.message = message
-        self.code = code  # machine-readable: validation_error | insufficient_balance | not_found | access_denied
+        self.code = code  
         self.status_code = status_code
 
 
@@ -82,7 +42,6 @@ def _now() -> str:
 
 
 def _money(value) -> Decimal:
-    """Parse/round any numeric input to a 2-decimal-place Decimal. Raises WalletError on garbage input."""
     try:
         d = Decimal(str(value))
     except Exception:
@@ -96,8 +55,6 @@ def _to_float(d: Decimal) -> float:
     return float(d)
 
 
-# ---------------- ID generation ----------------
-
 def _generate_payment_id() -> str:
     return f"PAY{uuid.uuid4().hex[:10].upper()}"
 
@@ -110,15 +67,8 @@ def generate_transaction_id() -> str:
     return f"TXN{uuid.uuid4().hex[:12].upper()}"
 
 
-# ---------------- Account creation & lookup ----------------
-
 def insert_account_row(conn, user_id: str) -> dict:
-    """
-    Low-level insert used INSIDE an already-open transaction (see
-    app/auth.py's register(), which creates the user row and the payment
-    account row together, atomically — a user is never left without a
-    wallet). Retries on the astronomically unlikely event of a collision.
-    """
+    
     now = _now()
     for _ in range(5):
         payment_id = _generate_payment_id()
@@ -172,22 +122,8 @@ def get_balance(user_id: str) -> float:
     return row["balance"]
 
 
-# ---------------- Add Money ----------------
-
 def add_money(user_id: str, amount, description: str | None = None) -> dict:
-    """
-    Add money to `user_id`'s own wallet. Currently an internal simulated
-    credit (no real payment gateway wired in yet — see module docstring).
-
-    UPI PIN POLICY: this function's signature is the complete interface
-    for Add Money — it takes only an amount and an optional description,
-    deliberately. If a real UPI-capable gateway (e.g. Razorpay Checkout)
-    is integrated later, this function must still never accept, store,
-    log, or forward a UPI PIN, card PIN, or any other payment-method
-    authentication secret. That authentication happens entirely inside
-    the gateway's own hosted UI; Vaani Pay only ever receives back a
-    payment/order result to verify, never a PIN to relay.
-    """
+   
     amount = _money(amount)
     if amount < MIN_ADD_MONEY:
         raise WalletError(f"Amount must be greater than ₹0.")
@@ -222,18 +158,8 @@ def add_money(user_id: str, amount, description: str | None = None) -> dict:
     }
 
 
-# ---------------- Recipient validation ----------------
-
 def validate_recipient(user_id: str, recipient_name: str, account_number: str | None = None, ifsc: str | None = None) -> dict:
-    """
-    Resolves a recipient before a transfer. Two modes:
-      - account_number given: validate its format, look it up in our
-        system (internal transfer) or treat it as an external/simulated
-        recipient (format-valid but not in our system).
-      - account_number omitted: look the name up in the caller's OWN
-        saved beneficiaries (never anyone else's).
-    Returns a dict with `status`: "resolved" | "not_found" | "ambiguous" | "invalid".
-    """
+   
     recipient_name = (recipient_name or "").strip()
     if not recipient_name:
         return {"status": "invalid", "message": "Recipient name is required."}
@@ -286,21 +212,8 @@ def _mask_account(account_number: str) -> str:
     return f"XXXX{account_number[-4:]}" if len(account_number) >= 4 else "XXXX"
 
 
-# ---------------- Transfers (initiate -> confirm / cancel) ----------------
-
 def initiate_transfer(user_id: str, recipient_name: str, account_number: str, ifsc: str, amount, note: str | None = None) -> dict:
-    """
-    Step 1 of Send Money — creates a PENDING transaction preview, moves no
-    money (see confirm_transfer for the actual debit/credit).
 
-    UPI PIN POLICY: this function's signature is the complete interface
-    for initiating a transfer — recipient identity, amount, and an
-    optional note, deliberately nothing else. Same rule as add_money():
-    if a real UPI-capable transfer/payout method is integrated later, the
-    PIN is entered inside that provider's own authorized interface — it
-    must never become a parameter here, never get stored on the
-    wallet_transactions row, and never appear in a log line.
-    """
     amount = _money(amount)
     if amount < MIN_TRANSFER:
         raise WalletError("Amount must be greater than ₹0.")
@@ -358,8 +271,7 @@ def _get_pending_transfer_owned_by(conn, user_id: str, transaction_id: str):
         (transaction_id,),
     ).fetchone()
     if row is None or row["sender_user_id"] != user_id:
-        # Same generic "not found" for both "doesn't exist" and "belongs to someone else" —
-        # avoids leaking which transaction IDs are valid.
+        
         raise WalletError("Transfer not found.", code="not_found", status_code=404)
     return row
 
@@ -373,7 +285,6 @@ def confirm_transfer(user_id: str, transaction_id: str) -> dict:
         amount = _money(txn["amount"])
         now = _now()
 
-        # Re-validate at confirm time — balance/account state may have changed since initiate.
         if txn["sender_status"] != "active":
             conn.execute("UPDATE wallet_transactions SET status='FAILED', failure_reason=?, updated_at=? WHERE transaction_id=?",
                          ("Sender account inactive", now, transaction_id))
@@ -425,7 +336,6 @@ def cancel_transfer(user_id: str, transaction_id: str) -> dict:
     return {"transaction_id": transaction_id, "status": "CANCELLED"}
 
 
-# ---------------- Transaction history ----------------
 
 _VALID_FILTERS = {"all", "add_money", "sent", "received", "failed", "pending"}
 
