@@ -37,7 +37,6 @@ def generate_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-# ---------------- Password policy ----------------
 
 MIN_PASSWORD_LENGTH = 8
 

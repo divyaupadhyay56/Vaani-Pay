@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import time
@@ -6,7 +5,8 @@ from typing import Optional
 
 from fastapi import Header, HTTPException, Request
 
-from app import auth
+from app.core.types import UserIdentity
+from app.services.auth_service import verify_token
 
 RATE_LIMIT_MAX_ATTEMPTS = 10
 RATE_LIMIT_WINDOW_SECONDS = 60
@@ -27,11 +27,11 @@ def client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def get_current_user(authorization: Optional[str] = Header(default=None)) -> auth.UserIdentity:
+async def get_current_user(authorization: Optional[str] = Header(default=None)) -> UserIdentity:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
     token = authorization.split(" ", 1)[1].strip()
-    identity = auth.verify_token(token)
+    identity = verify_token(token)
     if identity is None:
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
     return identity

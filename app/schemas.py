@@ -37,6 +37,7 @@ class AddMoneyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     amount: float
     description: Optional[str] = None
+    currency: Optional[str] = None
 
 
 class ValidateRecipientRequest(BaseModel):
@@ -53,6 +54,7 @@ class InitiateTransferRequest(BaseModel):
     ifsc: str
     amount: float
     note: Optional[str] = None
+    currency: Optional[str] = None
 
 class SaveBeneficiaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")

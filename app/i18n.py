@@ -189,7 +189,7 @@ UI_STRINGS: dict[str, dict[str, str]] = {
         "what_would_you_like": "आप क्या जानना चाहेंगे?",
         "add_money_confirm_prompt":      "💳 अपने वॉलेट में {amount} जोड़ें?\n\nपुष्टि के लिए हाँ या रद्द करने के लिए नहीं टाइप करें।",
 
-        # --- Wallet / payments ---
+        # --- Wallet ---
         "wallet": "वॉलेट",
         "my_account": "मेरा खाता",
         "available_balance": "उपलब्ध शेष",

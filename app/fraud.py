@@ -47,7 +47,6 @@ def analyse(
     hour_ago      = (now - timedelta(hours=1)).isoformat()
     thirty_days   = (now - timedelta(days=30)).isoformat()
 
-    # ── 1. Fetch sender's own account ────────────────────────────────────────
     account = conn.execute(
         "SELECT * FROM payment_accounts WHERE user_id = ?", (user_id,)
     ).fetchone()
@@ -111,7 +110,7 @@ def analyse(
     elif recent_count >= 2:
         velocity_score = 0.3
 
-    # New recipient
+   
     new_recip_score = 0.0
     if is_new_recipient:
         new_recip_score = 0.5

@@ -65,7 +65,7 @@ class MCPClient:
         if self._session is not None:
             return
         async with self._lock:
-            if self._session is not None:  # re-check after acquiring lock
+            if self._session is not None: 
                 return
             self._stack = AsyncExitStack()
             params = StdioServerParameters(
@@ -90,23 +90,44 @@ class MCPClient:
 
     async def close(self):
         if self._thread_loop is not None:
-            await asyncio.wrap_future(
-                asyncio.run_coroutine_threadsafe(self._close(), self._thread_loop)
-            )
-            self._thread_loop.call_soon_threadsafe(self._thread_loop.stop)
-            self._thread.join(timeout=5)
-            self._thread = None
-            self._thread_loop = None
-            self._thread_ready.clear()
+            try:
+                await asyncio.wait_for(
+                    asyncio.wrap_future(
+                        asyncio.run_coroutine_threadsafe(self._close(), self._thread_loop)
+                    ),
+                    timeout=2.0
+                )
+            except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError, Exception):
+                # Ignore all errors during shutdown with dedicated thread loop
+                # This can happen during uvicorn reload/shutdown
+                pass
+            finally:
+                try:
+                    self._thread_loop.call_soon_threadsafe(self._thread_loop.stop)
+                except (RuntimeError, Exception):
+                    pass
+                if self._thread and self._thread.is_alive():
+                    self._thread.join(timeout=1)
+                self._thread = None
+                self._thread_loop = None
+                self._thread_ready.clear()
             return
-        await self._close()
+        
+        try:
+            await self._close()
+        except (RuntimeError, asyncio.CancelledError, Exception):
+            pass
 
     async def _close(self):
         if self._stack is not None:
-            await self._stack.aclose()
-            self._session = None
-            self._stack = None
+            try:
+                await self._stack.aclose()
+            except (RuntimeError, asyncio.CancelledError, Exception):
+                # Ignore all errors during cleanup
+                pass
+            finally:
+                self._session = None
+                self._stack = None
 
 
-# Single shared client for the app's lifetime
 mcp_client = MCPClient()

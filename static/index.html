@@ -758,6 +758,10 @@ input:focus,select:focus{
   transition:all var(--transition);
 }
 .filter-chip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.analytics-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0 12px}
+.analytics-actions{display:flex;gap:6px}.analytics-btn{border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);border-radius:var(--radius-xs);padding:6px 9px;font-size:11px;font-weight:600;cursor:pointer}.analytics-btn:hover{border-color:var(--brand);color:var(--brand)}
+.analytics-chart{height:132px;display:flex;align-items:flex-end;gap:5px;border-bottom:1px solid var(--border);padding:12px 2px 0;margin-bottom:4px}.analytics-bar-wrap{height:100%;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;min-width:0}.analytics-bar{width:100%;max-width:24px;min-height:2px;background:linear-gradient(180deg,var(--brand),var(--brand-dark));border-radius:4px 4px 0 0}.analytics-label{font-size:9px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42px}.analytics-switch{display:flex;gap:4px}.analytics-switch button.active{background:var(--brand);border-color:var(--brand);color:#fff}.analytics-stat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:10px 12px;margin:10px 0}.analytics-stat strong{display:block;font-size:18px;margin-top:3px}.analytics-stat small{color:var(--text-muted);font-size:11px}.analytics-category{display:grid;grid-template-columns:70px 1fr 52px;align-items:center;gap:7px;margin:8px 0;font-size:11px}.category-track{height:7px;background:var(--border);border-radius:5px;overflow:hidden}.category-fill{height:100%;background:var(--success);border-radius:5px}.analytics-category-value{text-align:right;font-weight:600}
+@media print{body{background:#fff}.app>*:not(#walletBackdrop),#walletBackdrop .modal-header,#walletBackdrop .wallet-tabs{display:none!important}.modal-backdrop{position:static!important;display:block!important;opacity:1!important;background:#fff!important}.modal{max-height:none!important;transform:none!important;box-shadow:none!important}#walletPaneHistory,#walletPaneOverview,#walletPaneSend,#walletPanePin{display:none!important}}
 .beneficiary-chip{
   border:1.5px solid var(--border);
   background:var(--surface2);
@@ -1184,6 +1188,7 @@ input:focus,select:focus{
       <button class="wallet-tab active" id="walletTabOverview" data-i18n="my_account">My Account</button>
       <button class="wallet-tab" id="walletTabSend" data-i18n="send_money">Send Money</button>
       <button class="wallet-tab" id="walletTabHistory" data-i18n="transaction_history">History</button>
+      <button class="wallet-tab" id="walletTabAnalytics">Analytics</button>
     </div>
 
     <!-- ── PIN Auth pane ── -->
@@ -1293,6 +1298,12 @@ input:focus,select:focus{
         <button class="filter-chip" data-filter="pending" data-i18n="filter_pending">Pending</button>
       </div>
       <div id="historyList"></div>
+    </div>
+    <div id="walletPaneAnalytics" class="hidden" style="padding:10px 18px 8px">
+      <div class="analytics-toolbar"><div class="analytics-switch"><button class="analytics-btn active" data-period="weekly">Weekly</button><button class="analytics-btn" data-period="monthly">Monthly</button></div><div class="analytics-actions"><button class="analytics-btn" id="exportCsvBtn" title="Export CSV">CSV</button><button class="analytics-btn" id="exportPdfBtn" title="Print or save PDF">PDF</button></div></div>
+      <div class="modal-section" style="padding:0"><h4>Spending trend</h4><div id="trendChart" class="analytics-chart"></div></div>
+      <div id="peerStat" class="analytics-stat"></div>
+      <div class="modal-section" style="padding:0"><h4>Categories</h4><div id="categoryBreakdown"></div></div>
     </div>
   </div>
 </div>
@@ -1894,6 +1905,7 @@ const walletState = {
   beneficiaries: [],
   pendingTransfer: null,
   lastTransferResult: null,
+  analytics: null,
   historyFilter: "all",
 };
 
@@ -1910,9 +1922,10 @@ function closeWalletModal() { el("walletBackdrop").classList.remove("open"); }
 el("walletTabOverview").addEventListener("click", () => { switchWalletTab("overview"); loadWalletOverview(); });
 el("walletTabSend").addEventListener("click", () => { switchWalletTab("send"); resetSendMoneyFlow(); loadBeneficiaries(); });
 el("walletTabHistory").addEventListener("click", () => { switchWalletTab("history"); loadHistory(walletState.historyFilter); });
+el("walletTabAnalytics").addEventListener("click", () => { switchWalletTab("analytics"); loadAnalytics(); });
 
 function switchWalletTab(tab) {
-  ["overview","send","history"].forEach((t) => {
+  ["overview","send","history","analytics"].forEach((t) => {
     el(`walletTab${t.charAt(0).toUpperCase()+t.slice(1)}`).classList.toggle("active", t === tab);
     el(`walletPane${t.charAt(0).toUpperCase()+t.slice(1)}`).classList.toggle("hidden", t !== tab);
   });
@@ -1926,7 +1939,7 @@ function showPinAuth({ amountText, recipientText, returnTab, onSuccess }) {
   pinReturnTab = returnTab || "overview";
   pinOnSuccess = onSuccess || null;
   el("walletTabsBar").classList.add("hidden");
-  ["Overview","Send","History"].forEach((t) => el(`walletPane${t}`).classList.add("hidden"));
+  ["Overview","Send","History","Analytics"].forEach((t) => el(`walletPane${t}`).classList.add("hidden"));
   el("walletPanePin").classList.remove("hidden");
   el("pinAmount").textContent = amountText;
   if (recipientText) {
@@ -1978,6 +1991,12 @@ el("pinAuthenticateBtn").addEventListener("click", async () => {
 function formatMoney(amount) {
   const sign = amount < 0 ? "-" : "";
   return `${sign}₹${Math.abs(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function escapeHtml(value) {
+  const element = document.createElement("div");
+  element.textContent = value == null ? "" : String(value);
+  return element.innerHTML;
 }
 
 async function loadWalletOverview() {
@@ -2220,6 +2239,54 @@ function renderHistoryRow(tx) {
   row.appendChild(main); row.appendChild(right);
   return row;
 }
+
+// ── Analytics dashboard ──
+function analyticsMoney(amount) { return formatMoney(Number(amount || 0)); }
+
+async function loadAnalytics() {
+  try {
+    walletState.analytics = await api("/wallet/analytics");
+    renderAnalytics("weekly");
+  } catch (err) {
+    el("trendChart").innerHTML = `<div class="empty-note">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderAnalytics(period) {
+  const data = walletState.analytics;
+  if (!data) return;
+  document.querySelectorAll(".analytics-switch button").forEach((button) => button.classList.toggle("active", button.dataset.period === period));
+  const points = data[period] || [];
+  const max = Math.max(...points.map((point) => point.amount), 1);
+  const chart = el("trendChart");
+  chart.innerHTML = "";
+  points.forEach((point) => {
+    const wrap = document.createElement("div"); wrap.className = "analytics-bar-wrap"; wrap.title = `${point.label}: ${analyticsMoney(point.amount)}`;
+    const bar = document.createElement("div"); bar.className = "analytics-bar"; bar.style.height = `${Math.max(point.amount / max * 100, 2)}%`;
+    const label = document.createElement("div"); label.className = "analytics-label"; label.textContent = period === "weekly" ? point.label.slice(5) : point.label;
+    wrap.append(bar, label); chart.appendChild(wrap);
+  });
+
+  const peer = data.peer_comparison || {};
+  const difference = Number(peer.difference_percent || 0);
+  const peerText = peer.peer_average ? (difference >= 0 ? `You spend ${difference}% less than average this month.` : `You spend ${Math.abs(difference)}% more than average this month.`) : "Peer comparison will appear when there is enough anonymized data.";
+  el("peerStat").innerHTML = `<small>This month</small><strong>${analyticsMoney(peer.your_spend)}</strong><span>${peerText}</span>`;
+
+  const categories = data.categories || [];
+  const maxCategory = Math.max(...categories.map((category) => category.amount), 1);
+  el("categoryBreakdown").innerHTML = categories.length ? categories.map((category) => `<div class="analytics-category"><span>${escapeHtml(category.name)}</span><div class="category-track"><div class="category-fill" style="width:${category.amount / maxCategory * 100}%"></div></div><span class="analytics-category-value">${analyticsMoney(category.amount)}</span></div>`).join("") : '<div class="empty-note">No categorized spending yet.</div>';
+}
+
+document.querySelectorAll(".analytics-switch button").forEach((button) => button.addEventListener("click", () => renderAnalytics(button.dataset.period)));
+el("exportPdfBtn").addEventListener("click", () => window.print());
+el("exportCsvBtn").addEventListener("click", async () => {
+  try {
+    const result = await api("/wallet/transactions?filter=sent");
+    const rows = result.transactions || [];
+    const csv = [["Date", "Recipient", "Amount (INR)", "Original Amount", "Original Currency", "Exchange Rate", "Status", "Description"], ...rows.map((tx) => [tx.date, tx.counterparty, tx.inr_amount ?? Math.abs(tx.amount), tx.original_amount ?? "", tx.original_currency ?? "INR", tx.exchange_rate ?? 1, tx.status, tx.description || ""])].map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); link.download = "vaani-spending.csv"; link.click(); URL.revokeObjectURL(link.href);
+  } catch (err) { window.alert(err.message); }
+});
 
 // ═══════════════════════════════════════════════
 // BOOT

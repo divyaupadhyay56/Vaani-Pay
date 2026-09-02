@@ -2,10 +2,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from app import auth, db
+from app import db
 from app.agent import handle_message
 from app.error_handling import logger, safe_error_message
 from app.nlu import understand
+from app.services.auth_service import verify_token
 from app.session_store import append_history, clear_session, get_session, history_as_text, save_session
 from app.websocket_manager import ws_manager
 
@@ -36,7 +37,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await emit("auth_error", {"error": "Invalid token."})
                 continue
 
-            identity = auth.verify_token(token)
+            identity = verify_token(token)
             if identity is None:
                 await emit("auth_error", {"error": "Invalid or expired session. Please log in again."})
                 continue
@@ -45,7 +46,7 @@ async def websocket_endpoint(websocket: WebSocket):
             session["user_id"] = identity.user_id
             session["user_name"] = identity.name
             session["language"] = identity.language
-            session["simulation_mode"] = False  
+            session["simulation_mode"] = False
             save_session(session_id, session)
             await emit("auth_success", {"user_id": identity.user_id, "name": identity.name, "language": identity.language})
 
@@ -96,7 +97,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 def _persist_chat_turn(session: dict, conversation_id: str, role: str, message: str) -> None:
-    
     user_id = session.get("user_id")
     if not user_id:
         return

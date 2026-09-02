@@ -1,25 +1,27 @@
 from __future__ import annotations
 from typing import Optional
 from fastapi import APIRouter, Header, HTTPException, Request
-from app import auth, wallet
+from app.core.exceptions import AuthError
+from app.core.types import UserIdentity
 from app.dependencies import check_rate_limit, client_key, get_bearer_token
 from app.schemas import LoginRequest, RegisterRequest
+from app.services.auth_service import login, logout, register
+from app.services.wallet_account_service import get_account
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
 
 @router.post("/register")
 async def register_endpoint(payload: RegisterRequest, request: Request):
     check_rate_limit(f"register:{client_key(request)}")
     try:
-        identity = auth.register(
+        identity = register(
             name=payload.name, email=payload.email, password=payload.password,
             phone=payload.phone, language=payload.language,
         )
-    except auth.AuthError as e:
+    except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
-    account = wallet.get_account(identity.user_id)
+    account = get_account(identity.user_id)
     return {
         "user_id": identity.user_id, "name": identity.name, "email": identity.email, "language": identity.language,
         "message": "Your payment account has been successfully created.",
@@ -31,8 +33,8 @@ async def register_endpoint(payload: RegisterRequest, request: Request):
 async def login_endpoint(payload: LoginRequest, request: Request):
     check_rate_limit(f"login:{client_key(request)}")
     try:
-        identity, token = auth.login(payload.email, payload.password)
-    except auth.AuthError as e:
+        identity, token = login(payload.email, payload.password)
+    except AuthError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     return {
         "token": token,
@@ -43,5 +45,5 @@ async def login_endpoint(payload: LoginRequest, request: Request):
 @router.post("/logout")
 async def logout_endpoint(authorization: Optional[str] = Header(default=None)):
     token = get_bearer_token(authorization)
-    auth.logout(token)
+    logout(token)
     return {"status": "logged_out"}

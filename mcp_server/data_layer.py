@@ -88,7 +88,7 @@ def get_refund_status(refund_id: str, requesting_user_id: str) -> dict:
     }
 
 
-# ---------------- Customer / self-only (no ID manipulation surface at all) ----------------
+# ---------------- Customer----------------
 
 def get_customer_details(requesting_user_id: str) -> dict:
     """Always returns the caller's own profile — takes no target ID, so there's nothing to manipulate."""
@@ -112,7 +112,7 @@ def get_transaction_history(requesting_user_id: str) -> dict:
     return {"transactions": [dict(r) for r in rows]}
 
 
-# ---------------- Analytics / self-only ----------------
+# ---------------- Analytics  ----------------
 
 def get_payment_statistics(requesting_user_id: str) -> dict:
     conn = db.get_connection()
@@ -132,14 +132,6 @@ def get_payment_statistics(requesting_user_id: str) -> dict:
     }
 
 
-# ==================== Wallet (real money-movement system) ====================
-# Thin wrappers around app/wallet.py — the single source of truth for all
-# wallet business logic (also used directly by the REST endpoints in
-# app/main.py). Every function here takes `requesting_user_id` and passes
-# it straight through; wallet.py itself is what enforces that a user can
-# only ever act on their own account. WalletError is translated into the
-# same {"error": ..., "message": ...} shape the rest of this file uses, so
-# the AI agent (app/agent.py) has one consistent error format to handle.
 
 def _wallet_error_response(e: "wallet.WalletError") -> dict:
     return {"error": e.code, "message": e.message}
@@ -171,9 +163,9 @@ def validate_recipient(requesting_user_id: str, recipient_name: str, account_num
     return wallet.validate_recipient(requesting_user_id, recipient_name, account_number, ifsc)
 
 
-def create_transfer(requesting_user_id: str, recipient_name: str, account_number: str, ifsc: str, amount, note: str | None = None) -> dict:
+def create_transfer(requesting_user_id: str, recipient_name: str, account_number: str, ifsc: str, amount, note: str | None = None, currency: str | None = None) -> dict:
     try:
-        return wallet.initiate_transfer(requesting_user_id, recipient_name, account_number, ifsc, amount, note)
+        return wallet.initiate_transfer(requesting_user_id, recipient_name, account_number, ifsc, amount, note, currency)
     except wallet.WalletError as e:
         return _wallet_error_response(e)
 
@@ -199,7 +191,7 @@ def get_spending_summary(requesting_user_id: str, period: str = "month") -> dict
         return _wallet_error_response(e)
 
 
-# ── Fraud / Risk Engine ──────────────────────────────────────────────────────
+# ── Fraud  ──────────────────────────────────────────────────────
 
 def analyse_transfer_risk(
     requesting_user_id: str,
@@ -207,10 +199,6 @@ def analyse_transfer_risk(
     recipient_account_number: str,
     recipient_ifsc: str,
 ) -> dict:
-    """
-    Thin wrapper around app/fraud.analyse() — keeps the data layer as
-    the single gateway between MCP tools and application logic.
-    requesting_user_id scopes all DB reads inside fraud.analyse().
-    """
+    
     from app import fraud
     return fraud.analyse(requesting_user_id, amount, recipient_account_number, recipient_ifsc)

@@ -88,7 +88,6 @@ def test_send_money_allowed_tools():
 
 @pytest.mark.asyncio
 async def test_mcp_gateway_blocks_unlisted_tool():
-    """The secure MCP gateway must raise PermissionError for tools not in the allowlist."""
     from app.agent import _make_mcp_gateway
     gateway = _make_mcp_gateway({"get_balance"})
     with pytest.raises(PermissionError):
@@ -97,7 +96,6 @@ async def test_mcp_gateway_blocks_unlisted_tool():
 
 @pytest.mark.asyncio
 async def test_mcp_gateway_allows_listed_tool(monkeypatch):
-    """Gateway must forward calls for allowlisted tools."""
     from app.agent import _make_mcp_gateway
     calls = []
     async def fake_mcp_call(name, args):
@@ -115,7 +113,6 @@ async def test_mcp_gateway_allows_listed_tool(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_simulation_mode_does_not_call_execute_tools(monkeypatch):
-    """In simulation mode, add_money skill must NOT call the add_money MCP tool."""
     from app.skills import AddMoneySkill
     called_tools = []
 
@@ -152,8 +149,105 @@ def test_nlu_result_has_no_pin_field():
     assert "mpin" not in result.entities
 
 
+@pytest.mark.asyncio
+async def test_send_money_pending_confirmation_rehydrates_serialized_steps():
+    from app.skills.send_money import SendMoneySkill
+
+    class DummyNLU:
+        entities = {}
+
+    async def fake_emit(event, payload):
+        return None
+
+    async def fake_gateway(name, args):
+        if name == "create_transfer":
+            return {"transaction_id": "TXN-1001", "currency": "INR"}
+        if name == "confirm_transfer":
+            return {"amount": 100.0, "recipient_name": "Alice", "transaction_id": "TXN-1001", "balance": 1900.0}
+        raise AssertionError(f"Unexpected tool call: {name}")
+
+    skill = SendMoneySkill()
+    session = {
+        "pending_action": "skill:send_money:await_confirm",
+        "pending_payload": {
+            "recipient_name": "Alice",
+            "account_number": "123456789012",
+            "ifsc": "VPAY0000001",
+            "amount": 100.0,
+            "currency": "INR",
+            "note": "",
+            "steps": [
+                {"label": "Validate recipient", "tool": "validate_recipient", "status": "done",
+                 "params": {"requesting_user_id": "u1", "recipient_name": "Alice", "account_number": "123456789012", "ifsc": "VPAY0000001"}},
+                {"label": "Fraud risk check", "tool": None, "status": "done", "params": {"amount": 100.0}},
+                {"label": "Generate action preview", "tool": None, "status": "done", "params": {}},
+                {"label": "⏸ User confirmation", "tool": None, "status": "done", "params": {}},
+                {"label": "Initiate transfer", "tool": "create_transfer", "status": "pending",
+                 "params": {"requesting_user_id": "u1", "recipient_name": "Alice", "account_number": "123456789012", "ifsc": "VPAY0000001", "amount": 100.0, "currency": "INR", "note": ""}},
+            ],
+        },
+    }
+
+    result = await skill.handle_pending(
+        "skill:send_money:await_confirm",
+        "yes",
+        DummyNLU(),
+        session,
+        "u1",
+        "en",
+        fake_emit,
+        False,
+        lambda *args, **kwargs: None,
+        lambda allowed_tools: fake_gateway,
+    )
+
+    assert "TXN-1001" in result
+    assert session["pending_action"] is None
+    assert session["pending_payload"] == {}
+
+
+def test_usd_transfer_keeps_currency_through_confirmation(tmp_path, monkeypatch):
+    from app import db, wallet
+    from app.services.wallet_transfer_service import initiate_transfer, confirm_transfer
+
+    db_file = tmp_path / "usd_transfer.db"
+    monkeypatch.setattr(db, "DB_PATH", db_file)
+    db.init_db()
+
+    conn = db.get_connection()
+    conn.execute(
+        "INSERT OR IGNORE INTO users (id,name,email,password_hash,language,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+        ("u1", "Test User", "u1@test.com", "x", "en", "2025-01-01T00:00:00+00:00", "2025-01-01T00:00:00+00:00"),
+    )
+    conn.commit()
+
+    wallet.insert_account_row(conn, "u1")
+    conn.execute("UPDATE payment_accounts SET balance = 1000 WHERE user_id = ?", ("u1",))
+    conn.commit()
+
+    init = initiate_transfer("u1", "Ram", "123456789012", "VPAY0000001", 3, "note", "USD")
+    result = confirm_transfer("u1", init["transaction_id"])
+
+    assert init["currency"] == "INR"
+    assert init["original_currency"] == "USD"
+    assert init["exchange_rate"] == 91.0
+    assert init["inr_amount"] == 273.0
+    assert result["currency"] == "INR"
+    assert result["amount"] == 273.0
+
+    txn = conn.execute(
+        "SELECT original_amount, original_currency, exchange_rate, inr_amount, amount, currency, transaction_type, status FROM wallet_transactions WHERE transaction_id = ?",
+        (init["transaction_id"],),
+    ).fetchone()
+    assert txn["original_amount"] == 3.0
+    assert txn["original_currency"] == "USD"
+    assert txn["exchange_rate"] == 91.0
+    assert txn["inr_amount"] == 273.0
+    assert txn["amount"] == 273.0
+    assert txn["currency"] == "INR"
+
+
 def test_no_payment_secret_fields_in_skill_params():
-    """Ensure no skill's ALLOWED_TOOLS would allow a secret-leaking tool."""
     from app.skills import SKILL_REGISTRY
     from app.security import FORBIDDEN_PAYMENT_SECRET_FIELD_PATTERNS
     for skill in SKILL_REGISTRY:

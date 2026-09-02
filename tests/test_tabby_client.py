@@ -12,7 +12,6 @@ MERCHANT_CODE = "xx"
 
 
 def make_client(handler):
-    """Builds a TabbyClient whose internal httpx.Client uses a mock transport."""
     client = TabbyClient(public_key=PUBLIC_KEY, secret_key=SECRET_KEY, merchant_code=MERCHANT_CODE)
     client._client = httpx.Client(base_url=client.base_url, transport=httpx.MockTransport(handler))
     return client
@@ -290,7 +289,6 @@ def test_401_error_raised_for_bad_credentials():
 
 
 def test_credentials_never_appear_in_request_body():
-    """Sanity check: secret_key must only ever go in the Authorization header, never the JSON body."""
     captured = {}
 
     def handler(request: httpx.Request):

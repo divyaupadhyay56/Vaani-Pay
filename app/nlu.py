@@ -45,6 +45,7 @@ Return ONLY a JSON object with this exact shape, nothing else:
       "order_id": "<if mentioned, or null>",
       "refund_id": "<if mentioned, or null>",
       "amount": "<numeric amount if mentioned, or null>",
+      "currency": "<currency code like INR, USD, EUR, GBP if explicitly stated, or null>",
       "recipient_name": "<the person's name being sent money, if mentioned, or null>",
       "recipient_account_number": "<if an account number is explicitly stated, or null>",
       "recipient_ifsc": "<if an IFSC code is explicitly stated, or null>",

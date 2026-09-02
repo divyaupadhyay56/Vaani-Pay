@@ -1,6 +1,9 @@
-import re
+from __future__ import annotations
+
 from typing import Callable
+
 from app.config import settings
+from app.core.formatting import format_money, parse_amount
 from app.i18n import t, tpl
 from app.mcp_client import mcp_client
 from app.nlu import NLUResult
@@ -8,44 +11,12 @@ from app import skills as skill_registry
 
 ACCESS_DENIED_MESSAGE = "Access denied. You are not authorized to access this information."
 
-_AFFIRMATIVE = {"yes", "y", "yeah", "yep", "confirm", "confirmed", "ok", "okay",
-                "sure", "haan", "ha", "proceed", "go ahead"}
-_NEGATIVE    = {"no", "n", "nope", "cancel", "nahi", "nahin", "stop", "don't", "dont"}
-_AMOUNT_RE   = re.compile(r"[\d,]+(?:\.\d+)?")
+_money = format_money
+_parse_amount = parse_amount
 
 
 def _lang(session: dict) -> str:
     return session.get("language") or "en"
-
-
-def _money(amount: float) -> str:
-    return f"₹{amount:,.2f}"
-
-def _parse_amount(text: str) -> float | None:
-    match = _AMOUNT_RE.search((text or "").replace(",", ""))
-    if not match:
-        return None
-    try:
-        v = float(match.group())
-    except ValueError:
-        return None
-    return v if v > 0 else None
-
-
-def _is_affirmative(text: str) -> bool:
-    return (text or "").strip().lower().rstrip(".!") in _AFFIRMATIVE
-
-
-def _is_negative(text: str) -> bool:
-    return (text or "").strip().lower().rstrip(".!") in _NEGATIVE
-
-
-def _wallet_error_reply(result: dict, lang: str) -> str:
-    code = result.get("error")
-    key_map = {"insufficient_balance": "error_insufficient_balance"}
-    if code in key_map:
-        return t(key_map[code], lang)
-    return f"{t('wallet_error_generic', lang)} ({result.get('message', code)})"
 
 
 def _make_mcp_gateway(allowed_tools: set[str]) -> Callable:
@@ -63,7 +34,7 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
         if emit is not None:
             await emit(event_type, payload)
 
-    user_id  = session["user_id"] 
+    user_id  = session["user_id"]
     lang     = _lang(session)
     sim_mode = session.get("simulation_mode", False)
     pending  = session.get("pending_action")
@@ -83,9 +54,17 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
                 if lang == "en" else
                 "🧪 **सिमुलेशन मोड चालू।** मैं वास्तविक लेनदेन किए बिना वर्कफ़्लो प्लान करूंगा।")
 
- 
     if nlu.intent == "fallback_human_handoff" or nlu.confidence < settings.CONFIDENCE_THRESHOLD:
         return t("not_understood", lang)
+
+    entities = dict(nlu.entities or {})
+    if entities.get("amount") is not None and "currency" not in entities:
+        amount_text = nlu.english_translation or ""
+        parsed_amount, parsed_currency = _parse_amount(amount_text)
+        if parsed_amount is not None:
+            entities["amount"] = parsed_amount
+            entities["currency"] = parsed_currency
+    nlu.entities = entities
 
     if nlu.intent == "greeting":
         sim_note = " 🧪 Simulation mode is ON." if sim_mode else ""
@@ -127,162 +106,23 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
     return result.reply
 
 
-
 async def _continue_pending(
     pending: str, nlu: NLUResult, session: dict,
     user_id: str, lang: str, emit, sim_mode: bool,
 ) -> str:
-    text    = nlu.english_translation.strip()
-    payload = session.get("pending_payload") or {}
-
-    
-    if pending == "skill:add_money:await_amount":
-        amount = _parse_amount(text)
-        if amount is None:
-            return ("Please enter a valid amount (e.g. ₹500)." if lang == "en"
-                    else "कृपया एक वैध राशि दर्ज करें।")
-        session["pending_action"]  = "skill:add_money:await_confirm"
-        session["pending_payload"] = {"amount": amount}
-        await emit("preview", {"action": "Add Money", "amount": f"₹{amount:,.2f}",
-                               "risk_level": "LOW", "sim_mode": sim_mode})
-        return (f"💳 Add **₹{amount:,.2f}** to your wallet?\n\nReply **yes** to confirm or **no** to cancel."
-                if lang == "en" else
-                f"💳 अपने वॉलेट में **₹{amount:,.2f}** जोड़ें?\n\nपुष्टि के लिए **हाँ** टाइप करें।")
-
-    if pending == "skill:add_money:await_confirm":
-        amount = payload.get("amount")
-        session["pending_action"]  = None
-        session["pending_payload"] = {}
-        if not _is_affirmative(text):
-            return t("add_money_cancelled", lang)
-        if sim_mode:
-            return f"🧪 SIMULATION — Would add ₹{amount:,.2f} to your wallet. No real credit applied."
-        from app import skills as sk
-        gateway = _make_mcp_gateway(sk.AddMoneySkill.ALLOWED_TOOLS)
-        steps   = [skill_registry.WorkflowStep("Credit wallet", "add_money",
-                    {"requesting_user_id": user_id, "amount": amount})]
-        await emit("timeline", {"steps": skill_registry._serialize_steps(steps)})
-        steps[0].status = "running"; await emit("timeline", {"steps": skill_registry._serialize_steps(steps)})
-        result = await gateway("add_money", {"requesting_user_id": user_id, "amount": amount, "description": "Wallet top-up"})
-        if result.get("error"):
-            steps[0].status = "failed"; await emit("timeline", {"steps": skill_registry._serialize_steps(steps)})
-            return _wallet_error_reply(result, lang)
-        steps[0].status = "done"; await emit("timeline", {"steps": skill_registry._serialize_steps(steps)})
-        return tpl("add_money_success", lang,
-                   amount=_money(result["amount"]), balance=_money(result["balance"]),
-                   transaction_id=result["transaction_id"])
-
-    
-    if pending == "skill:send_money:await_recipient":
-        session["pending_action"]  = None
-        session["pending_payload"] = {**payload, "recipient_name": text}
-        nlu.entities["recipient_name"] = text
-        return await _dispatch_skill("send_money", nlu, session, user_id, lang, emit, sim_mode)
-
-    if pending == "skill:send_money:await_amount":
-        amount = _parse_amount(text)
-        if amount is None:
-            return ("Please enter a valid amount." if lang == "en" else "कृपया वैध राशि दर्ज करें।")
-        session["pending_action"]  = None
-        merged = {**payload, "amount": amount}
-        session["pending_payload"] = merged
-        nlu.entities = {**nlu.entities, "recipient_name": merged.get("recipient_name"),
-                        "recipient_account_number": merged.get("account_number"),
-                        "recipient_ifsc": merged.get("ifsc"), "amount": amount,
-                        "note": merged.get("note")}
-        return await _dispatch_skill("send_money", nlu, session, user_id, lang, emit, sim_mode)
-
-    if pending == "skill:send_money:await_account":
-        parts = [p.strip() for p in re.split(r"[\s,]+", text) if p.strip()]
-        if len(parts) < 2:
-            return ("Please provide account number and IFSC separated by space (e.g. 123456789012 VPAY0000001)."
-                    if lang == "en" else "कृपया खाता नंबर और IFSC दें।")
-        session["pending_action"]  = None
-        merged = {**payload, "account_number": parts[0], "ifsc": parts[1]}
-        session["pending_payload"] = merged
-        nlu.entities = {**nlu.entities, "recipient_name": merged.get("recipient_name"),
-                        "recipient_account_number": parts[0], "recipient_ifsc": parts[1],
-                        "amount": merged.get("amount"), "note": merged.get("note")}
-        return await _dispatch_skill("send_money", nlu, session, user_id, lang, emit, sim_mode)
-
-    if pending == "skill:send_money:await_confirm":
-        session["pending_action"]  = None
-        session["pending_payload"] = {}
-        if _is_negative(text):
-            return t("transfer_cancelled", lang)
-        if not _is_affirmative(text):
-            return ("Please reply **yes** to confirm or **no** to cancel."
-                    if lang == "en" else "पुष्टि के लिए **हाँ** या रद्द करने के लिए **नहीं** टाइप करें।")
-
-       
-        from app import skills as sk
-        gateway  = _make_mcp_gateway(sk.SendMoneySkill.ALLOWED_TOOLS)
-        old_steps = [skill_registry.WorkflowStep(**{**s, "tool": s.get("tool")})
-                     for s in (payload.get("steps") or [])]
-
-        await emit("timeline", {"steps": payload.get("steps", [])})
-
-        # Initiate
-        init_step = skill_registry.WorkflowStep("Initiate transfer", "create_transfer", {
-            "requesting_user_id": user_id,
-            "recipient_name":     payload["recipient_name"],
-            "account_number":     payload["account_number"],
-            "ifsc":               payload["ifsc"],
-            "amount":             payload["amount"],
-            "note":               payload.get("note") or "",
-        })
-        init_step.status = "running"
-        await emit("timeline", {"steps": skill_registry._serialize_steps(old_steps) +
-                                         [{"label": init_step.label, "tool": init_step.tool, "status": init_step.status}]})
-        transfer = await gateway("create_transfer", init_step.params)
-        if transfer.get("error"):
-            return _wallet_error_reply(transfer, lang)
-
-        
-        confirm_step = skill_registry.WorkflowStep("Execute transfer", "confirm_transfer",
-                            {"requesting_user_id": user_id, "transaction_id": transfer["transaction_id"]})
-        confirm_step.status = "running"
-        await emit("timeline", {"steps": [{"label": confirm_step.label, "tool": confirm_step.tool,
-                                            "status": confirm_step.status}]})
-        result = await gateway("confirm_transfer", confirm_step.params)
-        if result.get("error"):
-            return _wallet_error_reply(result, lang)
-
-        confirm_step.status = "done"
-        await emit("timeline", {"steps": [{"label": confirm_step.label, "tool": confirm_step.tool,
-                                            "status": confirm_step.status}]})
-        return tpl("transfer_success", lang,
-                   amount=_money(result["amount"]),
-                   recipient_name=result["recipient_name"],
-                   transaction_id=result["transaction_id"],
-                   balance=_money(result["balance"]))
-
-  
-    if pending == "skill:payment_status:await_pid":
-        intent = payload.get("intent", "check_payment_status")
-        session["pending_action"]  = None
-        session["pending_payload"] = {}
-        nlu.entities["payment_id"] = text
-        return await _dispatch_skill(intent, nlu, session, user_id, lang, emit, sim_mode)
-
-    if pending == "skill:payment_status:await_rid":
-        session["pending_action"]  = None
-        session["pending_payload"] = {}
-        nlu.entities["refund_id"]  = text
-        return await _dispatch_skill("check_refund_status", nlu, session, user_id, lang, emit, sim_mode)
-
-    if pending == "skill:payment_status:await_oid":
-        session["pending_action"]  = None
-        session["pending_payload"] = {}
-        nlu.entities["order_id"]   = text
-        return await _dispatch_skill("check_order_details", nlu, session, user_id, lang, emit, sim_mode)
-
-    if pending == "skill:payment_status:await_fraud_pid":
-        session["pending_action"]   = None
-        session["pending_payload"]  = {}
-        nlu.entities["payment_id"]  = text
-        return await _dispatch_skill("check_fraud_risk", nlu, session, user_id, lang, emit, sim_mode)
-
+    text = nlu.english_translation.strip()
+    parts = pending.split(":")
+    if len(parts) >= 2:
+        skill_name = parts[1]
+        for skill in skill_registry.SKILL_REGISTRY:
+            if skill.NAME == skill_name:
+                result = await skill.handle_pending(
+                    pending, text, nlu, session,
+                    user_id, lang, emit, sim_mode,
+                    _dispatch_skill, _make_mcp_gateway,
+                )
+                if result is not None:
+                    return result
     return t("lost_track", lang)
 
 

@@ -1,6 +1,3 @@
-"""Secure error handling, shared by the global exception handler (app/main.py)
-and the WebSocket router (app/routers/ws_routes.py)."""
-
 from __future__ import annotations
 
 import logging

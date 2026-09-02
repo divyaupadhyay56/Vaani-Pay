@@ -1,5 +1,3 @@
-
-
 import asyncio
 import importlib
 import inspect
@@ -14,7 +12,6 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    """Fresh app + fresh SQLite DB per test, so tests don't interfere with each other."""
     db_file = tmp_path / "test_vaani_pay.db"
     monkeypatch.setenv("DB_PATH", str(db_file))
 
@@ -97,7 +94,6 @@ def test_saved_recipients_reply_lists_beneficiaries(client):
 
 
 def test_send_money_simulation_uses_empty_strings_for_missing_recipient_fields():
-    """Simulation mode must not pass None into the MCP recipient validator."""
     from app.skills import SendMoneySkill
 
     captured = {}
@@ -136,7 +132,6 @@ def test_send_money_simulation_uses_empty_strings_for_missing_recipient_fields()
 
 
 def test_favicon_route_serves_an_icon(client):
-    """Browser requests for /favicon.ico should not 404 on the app shell."""
     res = client.get("/favicon.ico")
     assert res.status_code == 200
     assert res.headers.get("content-type", "").startswith("image/") or "svg" in res.headers.get("content-type", "")
@@ -179,36 +174,34 @@ def test_save_beneficiary_rejects_pin_field(client):
 
 
 def test_no_wallet_request_model_declares_a_payment_secret_field():
-    """Even if extra='forbid' were removed later, no model should ever DECLARE a PIN-like field."""
-    from app import security, main
+    from app import security, schemas
 
     wallet_models = [
-        main.AddMoneyRequest, main.ValidateRecipientRequest,
-        main.InitiateTransferRequest, main.SaveBeneficiaryRequest,
+        schemas.AddMoneyRequest, schemas.ValidateRecipientRequest,
+        schemas.InitiateTransferRequest, schemas.SaveBeneficiaryRequest,
     ]
     for model in wallet_models:
         hits = security.find_forbidden_payment_secret_fields(model.model_fields.keys())
         assert hits == [], f"{model.__name__} declares forbidden field(s): {hits}"
 
 
-def test_all_pydantic_models_in_main_are_free_of_payment_secret_fields():
-    """Broader sweep: every BaseModel in app/main.py, not just the wallet ones."""
-    from app import security, main
+def test_all_pydantic_models_in_schemas_are_free_of_payment_secret_fields():
+    from app import security, schemas
     from pydantic import BaseModel
 
     checked_any = False
-    for name, obj in vars(main).items():
+    for name, obj in vars(schemas).items():
         if inspect.isclass(obj) and issubclass(obj, BaseModel) and obj is not BaseModel:
             checked_any = True
             hits = security.find_forbidden_payment_secret_fields(obj.model_fields.keys())
             assert hits == [], f"{name} declares forbidden field(s): {hits}"
-    assert checked_any, "sanity check: expected to find at least one BaseModel in app.main"
+    assert checked_any, "sanity check: expected to find at least one BaseModel in app.schemas"
 
 
 def test_no_database_column_is_named_like_a_payment_secret():
     from app import security
 
-    schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app", "db.py")
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app", "db", "schema.py")
     with open(schema_path) as f:
         schema_sql = f.read()
 

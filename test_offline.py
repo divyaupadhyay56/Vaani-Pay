@@ -50,7 +50,6 @@ def fake_understand(message, conversation_context=""):
     if m.startswith("add ") and ("money" in m or "₹" in message or _amount(message)):
         return NLUResult(message, "add_money", {"amount": _amount(message)}, 0.9)
     if m.startswith("send ") or "send money" in m:
-        # very rough "send <amount> to <name>" extraction for test purposes only
         amt = _amount(message)
         name_match = re.search(r"\bto\s+([A-Za-z ]+)", message)
         return NLUResult(message, "send_money", {
