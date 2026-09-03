@@ -12,6 +12,7 @@ from app.services.profile_service import (
     update_profile,
 )
 
+
 router = APIRouter(prefix="/users/me", tags=["profile"])
 
 

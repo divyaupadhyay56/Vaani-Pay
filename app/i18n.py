@@ -50,6 +50,8 @@ UI_STRINGS: dict[str, dict[str, str]] = {
         "error_password_too_short": "Password must be at least 8 characters long.",
         "error_passwords_dont_match": "Passwords do not match.",
         "no_transactions": "You have no recent transactions.",
+        "no_beneficiaries": "No saved recipients yet.",
+        "saved_beneficiaries_header": "**Saved recipients:**",
         "account_created": "Account created! You can now log in.",
         "empty_state_no_data": "Nothing to show yet.",
         "suggestion_recent_transactions": "💳 Show my recent transactions",
@@ -173,6 +175,8 @@ UI_STRINGS: dict[str, dict[str, str]] = {
         "error_password_too_short": "पासवर्ड कम से कम 8 अक्षरों का होना चाहिए।",
         "error_passwords_dont_match": "पासवर्ड मेल नहीं खाते।",
         "no_transactions": "आपका कोई हालिया लेनदेन नहीं है।",
+        "no_beneficiaries": "अभी कोई सहेजा गया प्राप्तकर्ता नहीं है।",
+        "saved_beneficiaries_header": "**सहेजे गए प्राप्तकर्ता:**",
         "account_created": "खाता बन गया! अब आप लॉग इन कर सकते हैं।",
         "empty_state_no_data": "अभी दिखाने के लिए कुछ नहीं है।",
         "suggestion_recent_transactions": "💳 मेरे हाल के लेनदेन दिखाएं",
@@ -276,6 +280,10 @@ AGENT_STRINGS: dict[str, dict[str, str]] = {
         "access_denied": "Access denied. You are not authorized to access this information.",
         "no_transactions": "You have no recent transactions.",
         "fallback_capabilities": "I can help with payment status, refunds, orders, transaction history, fraud checks, or payment statistics. What would you like to do?",
+        "simulation_on_suffix": " Simulation mode is ON.",
+        "simulation_on": "🧪 **Simulation mode on.** I'll plan and validate payment workflows without executing real transactions. Say 'simulation mode off' to switch back.",
+        "simulation_off": "🔴 Simulation mode **off** — real payments are now active.",
+        "saved_beneficiaries_header": "**Saved recipients:**",
 
         # --- Wallet ---
         "ask_add_money_amount": "Sure! How much would you like to add?",
@@ -305,6 +313,10 @@ AGENT_STRINGS: dict[str, dict[str, str]] = {
         "access_denied": "पहुंच अस्वीकृत। आपको यह जानकारी देखने की अनुमति नहीं है।",
         "no_transactions": "आपका कोई हालिया लेनदेन नहीं है।",
         "fallback_capabilities": "मैं भुगतान स्थिति, रिफंड, ऑर्डर, लेनदेन इतिहास, धोखाधड़ी जांच, या भुगतान आंकड़ों में मदद कर सकता हूं। आप क्या करना चाहेंगे?",
+        "simulation_on_suffix": " सिमुलेशन मोड चालू है।",
+        "simulation_on": "🧪 **सिमुलेशन मोड चालू।** मैं वास्तविक लेनदेन किए बिना वर्कफ़्लो प्लान करूंगा।",
+        "simulation_off": "🔴 सिमुलेशन मोड **बंद** — वास्तविक भुगतान अब सक्रिय हैं।",
+        "saved_beneficiaries_header": "**सहेजे गए प्राप्तकर्ता:**",
 
         # --- Wallet ---
         "ask_add_money_amount": "ज़रूर! आप कितनी राशि जोड़ना चाहेंगे?",

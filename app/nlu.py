@@ -21,6 +21,8 @@ SUPPORTED_INTENTS = [
     "send_money",
     "view_wallet_transactions",
     "spending_summary",
+    "view_beneficiaries",
+    "set_simulation_mode",
     "general_question",
     "greeting",
     "fallback_human_handoff",
@@ -51,6 +53,7 @@ Return ONLY a JSON object with this exact shape, nothing else:
       "recipient_ifsc": "<if an IFSC code is explicitly stated, or null>",
       "note": "<a short message/reference for the transfer, if mentioned, or null>"
   }},
+    "response_language": "<en or hi, based on the user's latest message>",
   "confidence": <float between 0 and 1>
 }}
 
@@ -60,6 +63,8 @@ Rules:
 - "send_money": wants to transfer/send money to someone else.
 - "view_wallet_transactions": wants wallet transaction history.
 - "spending_summary": asking how much they've spent recently.
+- "view_beneficiaries": asking to list or show saved recipients/beneficiaries.
+- "set_simulation_mode": asking to enable or disable simulation/dry-run mode. Put the requested state in `simulation_enabled`.
 - "general_question": general how-to questions, not account-specific.
 - NEVER extract user_id, customer_id, account_id, or sender_id.
 - NEVER extract, echo, or store a UPI PIN, card PIN, OTP, or any
@@ -67,6 +72,10 @@ Rules:
   If a message contains one, treat the intent as payment-related and omit
   the secret entirely.
 - confidence should reflect genuine uncertainty.
+- Use `hi` for Hindi and Hinglish messages, including Hindi written in Latin
+    script (for example, "mera account m kitna paisa h"). Use `en` for English.
+- Keep the selected response language for short follow-ups whose language is
+    clear from context (for example, "acha" after a Hindi/Hinglish message).
 """
 
 
@@ -76,6 +85,7 @@ class NLUResult:
     intent: str
     entities: dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.0
+    response_language: str | None = None
 
 
 _client: OpenAI | None = None
@@ -93,6 +103,19 @@ def _strip_json_fences(text: str) -> str:
     text = re.sub(r"^```(json)?", "", text).strip()
     text = re.sub(r"```$", "", text).strip()
     return text
+
+
+def _response_language(message: str, model_language: str | None) -> str | None:
+    if re.search(r"[\u0900-\u097f]", message):
+        return "hi"
+    hindi_markers = {
+        "acha", "accha", "apna", "bhi", "hai", "h", "kitna", "meri",
+        "mera", "mere", "mujhe", "paisa", "paise", "kaha", "kya",
+    }
+    words = set(re.findall(r"[a-z]+", message.lower()))
+    if words & hindi_markers:
+        return "hi"
+    return model_language if model_language in ("en", "hi") else None
 
 
 def understand(message: str, conversation_context: str = "") -> NLUResult:
@@ -114,10 +137,11 @@ def understand(message: str, conversation_context: str = "") -> NLUResult:
         data = json.loads(_strip_json_fences(raw))
     except json.JSONDecodeError:
         return NLUResult(english_translation=message, intent="fallback_human_handoff",
-                         entities={}, confidence=0.0)
+                         entities={}, confidence=0.0, response_language=None)
     return NLUResult(
         english_translation=data.get("english_translation", message),
         intent=data.get("intent", "fallback_human_handoff"),
         entities=data.get("entities", {}) or {},
         confidence=float(data.get("confidence", 0.0) or 0.0),
+        response_language=_response_language(message, data.get("response_language")),
     )

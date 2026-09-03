@@ -68,6 +68,8 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 await emit("status", {"text": "🔍 Understanding your request..."})
                 nlu = understand(text.strip(), conversation_context=history_as_text(session))
+                if nlu.response_language in ("en", "hi"):
+                    session["language"] = nlu.response_language
                 append_history(session, "user", nlu.english_translation)
                 _persist_chat_turn(session, session_id, "user", text.strip())
 

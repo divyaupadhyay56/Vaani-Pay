@@ -15,6 +15,10 @@ def register(mcp):
         return data_layer.get_wallet_transactions(requesting_user_id, filter)
 
     @mcp.tool()
+    def list_beneficiaries(requesting_user_id: str) -> dict:
+        return data_layer.list_beneficiaries(requesting_user_id)
+
+    @mcp.tool()
     def validate_recipient(requesting_user_id: str, recipient_name: str, account_number: str = "", ifsc: str = "") -> dict:
         return data_layer.validate_recipient(requesting_user_id, recipient_name, account_number or None, ifsc or None)
 

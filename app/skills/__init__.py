@@ -4,6 +4,8 @@ from app.skills.add_money import AddMoneySkill  # noqa: F401
 from app.skills.send_money import SendMoneySkill  # noqa: F401
 from app.skills.transaction_memory import TransactionMemorySkill  # noqa: F401
 from app.skills.payment_status import PaymentStatusSkill  # noqa: F401
+from app.skills.beneficiaries import BeneficiariesSkill  # noqa: F401
+from app.skills.simulation_mode import SimulationModeSkill  # noqa: F401
 from app.skills.registry import SKILL_REGISTRY, select_skill  # noqa: F401
 
 # Backward-compatible aliases for the old private names

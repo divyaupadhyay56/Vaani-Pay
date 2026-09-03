@@ -150,6 +150,21 @@ def test_nlu_result_has_no_pin_field():
 
 
 @pytest.mark.asyncio
+async def test_hinglish_response_language_is_used_for_replies():
+    from app.agent import handle_message
+    from app.nlu import NLUResult
+
+    session = {"user_id": "u1", "language": "en", "simulation_mode": False}
+    result = await handle_message(
+        NLUResult("mera balance", "general_question", {}, 0.9, "hi"),
+        session,
+    )
+
+    assert session["language"] == "hi"
+    assert "मैं" in result
+
+
+@pytest.mark.asyncio
 async def test_send_money_pending_confirmation_rehydrates_serialized_steps():
     from app.skills.send_money import SendMoneySkill
 

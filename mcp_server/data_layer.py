@@ -137,6 +137,13 @@ def _wallet_error_response(e: "wallet.WalletError") -> dict:
     return {"error": e.code, "message": e.message}
 
 
+def list_beneficiaries(requesting_user_id: str) -> dict:
+    try:
+        return {"beneficiaries": wallet.list_beneficiaries(requesting_user_id)}
+    except wallet.WalletError as e:
+        return _wallet_error_response(e)
+
+
 def get_balance(requesting_user_id: str) -> dict:
     try:
         account = wallet.get_account(requesting_user_id)

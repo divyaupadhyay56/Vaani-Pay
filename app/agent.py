@@ -4,7 +4,7 @@ from typing import Callable
 
 from app.config import settings
 from app.core.formatting import format_money, parse_amount
-from app.i18n import t, tpl
+from app.i18n import t
 from app.mcp_client import mcp_client
 from app.nlu import NLUResult
 from app import skills as skill_registry
@@ -34,6 +34,9 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
         if emit is not None:
             await emit(event_type, payload)
 
+    if nlu.response_language in ("en", "hi"):
+        session["language"] = nlu.response_language
+
     user_id  = session["user_id"]
     lang     = _lang(session)
     sim_mode = session.get("simulation_mode", False)
@@ -41,18 +44,6 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
 
     if pending:
         return await _continue_pending(pending, nlu, session, user_id, lang, _emit, sim_mode)
-
-    text_lower = nlu.english_translation.lower()
-    if "simulation mode" in text_lower or "dry run" in text_lower or "dry-run" in text_lower:
-        if "off" in text_lower or "disable" in text_lower or "exit" in text_lower:
-            session["simulation_mode"] = False
-            return ("🔴 Simulation mode **off** — real payments are now active."
-                    if lang == "en" else "🔴 सिमुलेशन मोड **बंद** — वास्तविक भुगतान अब सक्रिय हैं।")
-        session["simulation_mode"] = True
-        return ("🧪 **Simulation mode on.** I'll plan and validate payment workflows without executing real transactions. "
-                "Say 'simulation mode off' to switch back."
-                if lang == "en" else
-                "🧪 **सिमुलेशन मोड चालू।** मैं वास्तविक लेनदेन किए बिना वर्कफ़्लो प्लान करूंगा।")
 
     if nlu.intent == "fallback_human_handoff" or nlu.confidence < settings.CONFIDENCE_THRESHOLD:
         return t("not_understood", lang)
@@ -67,29 +58,14 @@ async def handle_message(nlu: NLUResult, session: dict, emit=None) -> str:
     nlu.entities = entities
 
     if nlu.intent == "greeting":
-        sim_note = " 🧪 Simulation mode is ON." if sim_mode else ""
+        sim_note = t("simulation_on_suffix", lang) if sim_mode else ""
         greeting = t("greeting", lang) + sim_note
         return greeting
 
-    text_lower = (nlu.english_translation or "").lower()
-    if "saved recipient" in text_lower or "saved recipients" in text_lower or "beneficiary" in text_lower or "beneficiaries" in text_lower:
-        from app import wallet
-        beneficiaries = wallet.list_beneficiaries(user_id)
-        if not beneficiaries:
-            return ("No saved recipients yet." if lang == "en" else "अभी कोई सहेजा गया प्राप्तकर्ता नहीं है।")
-
-        lines = [
-            f"• {b['recipient_name']} — {b['account_number']} ({b['ifsc']})"
-            for b in beneficiaries
-        ]
-        return ("**Saved recipients:**\n" + "\n".join(lines) if lang == "en"
-                else "**सहेजे गए प्राप्तकर्ता:**\n" + "\n".join(lines))
-
-    if nlu.intent == "general_question":
-        return t("general_question", lang)
-
-    skill = skill_registry.select_skill(nlu.intent)
+    skill = skill_registry.select_skill(nlu.intent, nlu.english_translation)
     if skill is None:
+        if nlu.intent == "general_question":
+            return t("general_question", lang)
         return t("fallback_capabilities", lang)
 
     gateway = _make_mcp_gateway(skill.ALLOWED_TOOLS)
@@ -129,7 +105,7 @@ async def _continue_pending(
 async def _dispatch_skill(intent: str, nlu: NLUResult, session: dict,
                           user_id: str, lang: str, emit, sim_mode: bool) -> str:
     """Re-route to a skill after gathering missing entities."""
-    skill = skill_registry.select_skill(intent)
+    skill = skill_registry.select_skill(intent, nlu.english_translation)
     if skill is None:
         return t("fallback_capabilities", lang)
     gateway = _make_mcp_gateway(skill.ALLOWED_TOOLS)
