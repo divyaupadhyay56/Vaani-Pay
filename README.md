@@ -418,7 +418,16 @@ validation, behavioral fraud checks, explainable payment previews and
 explicit human authorization before money movement.**
 
 
+
+Flow Chart of the Vaani Pay 
+<img width="1345" height="744" alt="image" src="https://github.com/user-attachments/assets/ff410ad1-e76c-48b8-b122-9ec7b66e41df" />
+
+
+
 <img width="540" height="856" alt="image" src="https://github.com/user-attachments/assets/763b15df-ca84-4ac3-95c3-9f6c8a672b32" />
 
-<img width="1345" height="744" alt="image" src="https://github.com/user-attachments/assets/ff410ad1-e76c-48b8-b122-9ec7b66e41df" />
+
+
+
+
 
